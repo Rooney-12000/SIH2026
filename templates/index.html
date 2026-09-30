@@ -1,0 +1,957 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#241B3A">
+  <meta name="description" content="IRIS is an AI listening companion. A quiet place to talk and find next steps.">
+  <title>IRIS — a place to talk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--dusk-1:#241B3A;--dusk-2:#372B52;--dusk-3:#4A3D66;--paper:#FBF8F3;--panel:#fff;--ink:#241B3A;--muted:#756E8A;--hairline:#E7E1F0;--gold:#E8B75B;--rose:#D98A93;--calm:#4C8577;--ember:#C0693A;--radius:16px}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:none!important}
+    .screen{position:fixed;z-index:20;inset:0;display:grid;place-items:center;padding:20px;background:linear-gradient(155deg,var(--dusk-1),var(--dusk-2))}.card{width:min(100%,490px);max-height:92vh;overflow:auto;padding:36px;background:var(--paper);border-radius:var(--radius);box-shadow:0 24px 70px #140d25a6}.card h1,.card h2,.serif{font-family:Literata,Georgia,serif}.card h1,.card h2{margin:0 0 12px;font-size:26px}.card p{font-size:14px;line-height:1.7;color:var(--muted)}.consent{display:flex;gap:11px;padding:14px;margin:20px 0;background:#F4EFE3;border:1px solid #EADCCB;border-radius:11px;font-size:13px;line-height:1.5}.consent input{margin-top:2px;accent-color:var(--ink)}.btn{border:0;border-radius:10px;padding:13px 17px;font-weight:650;background:var(--ink);color:white}.btn:hover{background:var(--dusk-2)}.btn:disabled{opacity:.4;cursor:not-allowed}.btn.light{background:#fff;color:var(--ink);border:1px solid var(--hairline)}.actions{display:flex;gap:10px;flex-wrap:wrap}.actions .btn{flex:1}.field{margin:13px 0}.field label{display:block;font-size:12px;font-weight:650;margin:0 0 6px}.field input,.field select{width:100%;border:1px solid var(--hairline);border-radius:9px;padding:12px;background:white;color:var(--ink)}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.privacy{font-size:11px!important}.orb{width:76px;height:76px;margin:0 auto 20px;border-radius:50%;background:radial-gradient(circle at 35% 25%,var(--gold),var(--rose) 55%,var(--dusk-2));animation:pulse 1.6s infinite ease-in-out}.loading-card{text-align:center}.loading-card p{margin-bottom:0}@keyframes pulse{50%{transform:scale(1.14);opacity:.8}}
+    header.hero{position:relative;overflow:hidden;text-align:center;color:#fff;padding:54px 18px 84px;background:linear-gradient(155deg,var(--dusk-1),var(--dusk-2) 60%,var(--dusk-3))}.hero:before,.hero:after{content:"";position:absolute;width:270px;height:270px;border-radius:50%;filter:blur(60px);opacity:.28}.hero:before{background:var(--gold);top:-170px;left:-60px}.hero:after{background:var(--rose);bottom:-190px;right:-40px}.hero-inner{position:relative;max-width:660px;margin:auto}.brand{font:italic 500 42px Literata,Georgia,serif;margin:0 0 5px}.tagline{color:#ded8e9;line-height:1.6;margin:0 auto;max-width:570px}.tiny-note{font-size:11px;color:#ead9b5;margin:14px auto 0;max-width:660px;line-height:1.5}.tiny-note a{color:#f5dfad}.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(285px,.8fr);gap:22px;max-width:1120px;padding:0 22px 48px;margin:-38px auto 0;position:relative}.panel{background:var(--panel);border:1px solid var(--hairline);border-radius:var(--radius);box-shadow:0 12px 32px #241b3a12}.chat-panel{display:flex;flex-direction:column;height:690px;min-height:500px}.chat-head{padding:17px 21px;border-bottom:1px solid var(--hairline)}.chat-head h2{margin:0;font:500 18px Literata,Georgia,serif}.chat-head p{margin:4px 0 0;font-size:12px;color:var(--muted)}.chat-box{flex:1;overflow:auto;padding:23px 22px}.welcome{margin:auto;text-align:center;max-width:390px;color:var(--muted);font-size:14px;line-height:1.6}.welcome strong{display:block;font:500 22px Literata,Georgia,serif;color:var(--ink);margin-bottom:8px}.prompts{display:grid;gap:8px;margin-top:18px}.prompt{padding:11px 13px;border:1px solid var(--hairline);border-radius:10px;background:white;text-align:left;color:var(--ink);font-size:13px}.prompt:hover{background:#faf7f1}.row{display:flex;margin-bottom:13px}.row.user{justify-content:flex-end}.bubble{max-width:88%;white-space:pre-wrap;line-height:1.58;font-size:14px;padding:11px 14px;border-radius:14px}.bubble.user{color:#fff;background:var(--ink);border-bottom-right-radius:4px}.bubble.bot{background:#faf7f1;border:1px solid var(--hairline);border-bottom-left-radius:4px}.bubble.crisis{border-color:#e0b49b;background:#fff1e8}.composer{display:flex;gap:9px;align-items:flex-end;padding:13px 15px;border-top:1px solid var(--hairline)}.composer textarea{flex:1;resize:none;min-height:44px;max-height:120px;border:1px solid var(--hairline);border-radius:10px;padding:11px 12px;background:var(--paper)}.composer button{height:44px;padding:0 20px}.compliance{font-size:10px;color:var(--muted);padding:0 18px 13px;line-height:1.5}.sidebar{display:grid;align-content:start;gap:16px}.side-panel{padding:21px}.side-panel h2{font:500 17px Literata,Georgia,serif;margin:0 0 7px}.side-panel p{font-size:12px;line-height:1.6;color:var(--muted);margin:0 0 13px}.checklist{display:grid;gap:13px;margin:14px 0}.question{font-size:12px;line-height:1.45}.question select{width:100%;margin-top:6px;border:1px solid var(--hairline);border-radius:8px;padding:8px;background:#fff;color:var(--ink);font-size:12px}.scale{height:10px;background:#eeeaf7;border-radius:999px;overflow:hidden;margin:13px 0 7px}.scale-fill{height:100%;width:0;background:var(--calm);border-radius:inherit;transition:width .35s,background .35s}.result{font-weight:650;font-size:13px}.phq-foot{font-size:10px!important;margin:10px 0 0!important}.crisis-card{background:#fff6f0;border-color:#f0d4c5}.crisis-card a,.textlink{color:var(--ink);font-weight:650}.resource-buttons{display:grid;gap:8px}.resource-buttons a{font-size:12px;text-decoration:none;text-align:center}.status{min-height:18px;color:var(--ember);font-size:12px;margin:8px 0}.end-banner{padding:13px 15px;background:#eff7f4;border:1px solid #c8e0d8;border-radius:11px;font-size:13px;line-height:1.5;margin:0 15px 13px}.reviews{max-width:1076px;margin:0 auto;padding:10px 22px 55px;scroll-margin-top:18px}.reviews h2{font:500 24px Literata,Georgia,serif}.review-grid{display:grid;grid-template-columns:minmax(230px,.8fr) 1.2fr;gap:18px}.review-card{background:white;border:1px solid var(--hairline);border-radius:13px;padding:16px}.stars{color:#cc963a}.review-entry{padding:10px 0;border-bottom:1px solid var(--hairline);font-size:13px;line-height:1.5}.star-pick{display:flex;gap:5px;margin:7px 0}.star-pick button{font-size:24px;color:#d8d1e3;background:none;border:0;padding:0}.star-pick button.active{color:var(--gold)}.review-card textarea{width:100%;min-height:75px;resize:vertical;border:1px solid var(--hairline);border-radius:9px;padding:10px}.share{border:1px solid var(--hairline);background:white;color:var(--ink);border-radius:8px;padding:8px 11px;font-size:12px}.footer{color:var(--muted);text-align:center;font-size:11px;padding:16px}
+    @media(max-width:850px){.layout{grid-template-columns:1fr}.chat-panel{height:64vh;min-height:490px}.sidebar{grid-template-columns:1fr 1fr}.crisis-card{grid-column:1/-1}}@media(max-width:560px){.card{padding:28px 22px}.grid2{grid-template-columns:1fr}.hero{padding-top:38px!important;padding-bottom:65px!important}.brand{font-size:35px}.layout{padding:0 11px 32px;gap:13px}.chat-panel{height:67vh;min-height:450px}.chat-box{padding:16px 13px}.sidebar{grid-template-columns:1fr}.crisis-card{grid-column:auto}.reviews{padding:8px 12px 36px}.review-grid{grid-template-columns:1fr}.composer{padding:11px}.composer button{padding:0 15px}}
+    .mortal-note{font-size:12px;color:#fff2d2;margin:10px auto 0;max-width:640px;line-height:1.5}.phq-pie{--score-angle:0deg;--distress-color:var(--calm);width:150px;height:150px;margin:16px auto;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--distress-color) 0deg var(--score-angle),#eeeaf4 var(--score-angle) 360deg);transition:background .35s}.phq-pie-center{width:108px;height:108px;border-radius:50%;background:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;box-shadow:inset 0 0 0 1px var(--hairline)}.phq-pie-center strong{font-size:18px}.phq-pie-center span{font-size:10px;color:var(--muted);margin-top:3px}.phq-result-text{text-align:center;font-weight:650;font-size:13px}.phq-legend{font-size:10px!important;line-height:1.7!important;margin:10px 0!important}.crisis-card{background:#e9f4ed;border-color:#bad8c4}.crisis-card .tele-manas{background:#26734d!important;color:#fff!important;font-weight:700;border:1px solid #1d603f}.crisis-card .tele-manas:hover{background:#1d603f!important}
+    .terms-login{margin-top:12px;width:100%}.account-actions{position:absolute;top:14px;right:18px;display:flex;gap:8px;z-index:2}.account-actions button{background:#ffffff18;border:1px solid #ffffff55;color:#fff}.account-actions button:hover{background:#ffffff30}.profile-email{background:#f3f0f6!important;color:var(--muted)!important}.screen-card-actions{display:flex;gap:9px;flex-wrap:wrap}.screen-card-actions button{flex:1}
+    @media(max-width:560px){.account-actions{top:9px;right:9px}.account-actions button{padding:8px 9px;font-size:11px}.hero-inner{padding-top:32px}}
+  </style>
+  <style>
+    .account-slide-out{animation:irisAccountUp 1.8s cubic-bezier(.22,.75,.2,1) both;pointer-events:none}
+    #app.account-slide-in{position:relative;z-index:21;animation:irisAppRise 1.8s cubic-bezier(.22,.75,.2,1) both}
+    @keyframes irisAccountUp{from{transform:translateY(0);opacity:1}to{transform:translateY(-100vh);opacity:.96}}
+    @keyframes irisAppRise{from{transform:translateY(100vh)}to{transform:translateY(0)}}
+  </style>
+</head>
+<body>
+  <section id="terms-screen" class="screen" aria-labelledby="terms-title">
+    <div class="card">
+      <p class="serif" style="color:var(--ink);font-size:12px;letter-spacing:.08em;text-transform:uppercase">A moment before we begin</p>
+      <h1 id="terms-title">A gentle note about IRIS</h1>
+      <p>IRIS is an AI listening companion, not a person, therapist, or emergency service. It can make mistakes and cannot diagnose or provide treatment. IRIS works best when all the information provided is true. Please answer honestly; inaccurate information may make supportive suggestions less relevant. The PHQ-9 is a screening tool and cannot diagnose a mental illness. Your profile and chat are deleted then, or after seven days without activity.</p>
+      <p>If you or someone else is in immediate danger, contact local emergency services. In India, Tele-MANAS is available at <a href="tel:14416">14416</a>.</p>
+      <label class="consent"><input id="consent" type="checkbox"><span>I understand this is an AI support prototype and agree to continue. I will share information to the best of my ability.</span></label>
+      <div class="actions"><button id="agree" class="btn" disabled>Create account</button><button id="decline" class="btn light">Not now</button></div>
+      <button id="terms-login" class="btn light terms-login" disabled>Log in with email</button>
+    </div>
+  </section>
+
+  <section id="animator" class="screen hidden">
+    <div class="card loading-card">
+      <div class="orb"></div>
+      <div class="serif">Making a little space...</div>
+      <p>Just a moment</p>
+    </div>
+  </section>
+
+  <section id="login-screen" class="screen hidden" aria-labelledby="login-title">
+    <div class="card">
+      <h2 id="login-title">Welcome back</h2>
+      <p>Enter the email address on your IRIS account. This prototype does not verify email ownership.</p>
+      <form id="login-form">
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input id="login-email" type="email" autocomplete="email" required>
+        </div>
+        <p class="status" id="login-status" role="alert"></p>
+        <button class="btn" type="submit">Log in</button>
+      </form>
+      <p><button type="button" class="share" id="show-signup">Create a new account</button></p>
+    </div>
+  </section>
+
+  <section id="details-screen" class="screen hidden" aria-labelledby="details-title">
+    <div class="card">
+      <h2 id="details-title">A little about you</h2>
+      <p>Enter a value for each field. If you prefer not to share your location or sex, select the explicit “Prefer not to share” option.</p>
+      <form id="details-form">
+        <div class="field">
+          <label for="alias">What should IRIS call you?</label>
+          <input id="alias" maxlength="80" autocomplete="nickname" required>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="place">City or town (enter “Prefer not to share” if you wish)</label>
+          <input id="place" maxlength="120" autocomplete="address-level2" required>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label for="age">Age group</label>
+            <select id="age" required>
+              <option value="" disabled selected>Select</option>
+              <option>12-18</option>
+              <option>19-28</option>
+              <option>29-40</option>
+              <option>40+</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="sex">Sex</label>
+            <select id="sex" required>
+              <option value="" disabled selected>Select or choose not to share</option>
+              <option value="prefer_not_to_say">Prefer not to say</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+            </select>
+          </div>
+        </div>
+        <p class="privacy">Your sex selection does not change IRIS’s identity or persona. You may use a nickname; the email is used to prevent duplicate active sessions.</p>
+        <p id="form-status" class="status" role="alert"></p>
+        <button class="btn" type="submit">Open my space</button>
+      </form>
+      <p>Already have an account? <button type="button" class="share" id="show-login">Log in</button></p>
+    </div>
+  </section>
+
+  <section id="profile-screen" class="screen hidden" aria-labelledby="profile-title">
+    <div class="card">
+      <h2 id="profile-title">Your personal details</h2>
+      <p>Your email cannot be changed here. Contact IRIS only if you need help with your account.</p>
+      <div class="field"><label>Email</label><input id="profile-email" class="profile-email" readonly></div>
+      <div class="field"><label>Name</label><input id="profile-alias" readonly></div>
+      <div class="field"><label>Place</label><input id="profile-place" readonly></div>
+      <div class="grid2">
+        <div class="field"><label>Age group</label><input id="profile-age" readonly></div>
+        <div class="field"><label>Sex</label><input id="profile-sex" readonly></div>
+      </div>
+      <div class="screen-card-actions"><button class="btn light" id="cancel-profile">Back to chat</button><button class="btn" id="logout-button">Log out</button></div>
+    </div>
+  </section>
+
+  <div id="app" class="hidden">
+    <header class="hero">
+      <div class="account-actions">
+        <button class="share" id="share" type="button">Sharable link</button>
+        <button class="share" id="profile-button" type="button">Personal details</button>
+        <button class="share" id="logout-button-top" type="button">Log out</button>
+      </div>
+      <div class="hero-inner">
+        <h1 class="brand">IRIS</h1>
+        <p class="tagline">A quiet, supportive place to talk. Start wherever feels easiest.</p>
+        <p class="mortal-note">IRIS is a mortal AI Chat bot which dies with the mental health issue of the client.</p>
+        <p class="tiny-note">IRIS is an AI support prototype, not a clinician. It cannot diagnose or provide treatment. If you may be in immediate danger, seek urgent human help. In India, call <a href="tel:14416">Tele-MANAS 14416</a>.</p>
+      </div>
+    </header>
+    <main class="layout">
+      <section class="panel chat-panel">
+        <div class="chat-head"><h2 id="hello">Here with you</h2><p>Your conversation is stored for your session and deleted after seven days without activity or when your session ends.</p></div>
+        <div class="chat-box" id="chat-box" aria-live="polite">
+          <div class="welcome" id="welcome"><strong>Hi, I’m IRIS.</strong>What’s been on your mind lately?
+            <div class="prompts">
+              <button class="prompt">I’ve been feeling stressed lately.</button>
+              <button class="prompt">Something happened today.</button>
+              <button class="prompt">I don’t really know what’s wrong.</button>
+            </div>
+          </div>
+        </div>
+        <div class="end-banner hidden" id="end-banner" role="status"></div>
+        <form class="composer" id="composer">
+          <textarea id="message" rows="1" maxlength="5000" placeholder="Write what’s on your mind…" required></textarea>
+          <button class="btn" id="send" type="submit">Send</button>
+        </form>
+        <p class="compliance">This is not a diagnosis or a replacement for qualified care. A PHQ-9 score is a screening result only. In India, call Tele-MANAS at 14416.</p>
+      </section>
+
+      <aside class="sidebar">
+        <section class="panel side-panel" id="phq-gate">
+          <h2>PHQ-9 distress check-in</h2>
+          <p>PHQ-9 is a screening result, not a diagnosis. IRIS will begin it after at least 15 messages and after collecting the report details below through your conversation.</p>
+          <p id="phq-gate-status" class="status" role="status">After 15 messages, IRIS will ask a few questions needed for your report. When those details are ready, the mandatory PHQ-9 check-in will start automatically, followed by report preparation.</p>
+          <form id="phq-form" class="hidden"></form>
+          <div id="phq-result" class="hidden">
+            <div id="phq-pie" class="phq-pie" role="img" aria-label="PHQ-9 score shown as a portion of the maximum score">
+              <div class="phq-pie-center"><strong id="pie-score">0/27</strong><span>PHQ-9 score</span></div>
+            </div>
+            <p id="score-text" class="phq-result-text"></p>
+            <p id="score-note" class="phq-foot"></p>
+            <p id="report-status" class="status" role="status"></p>
+            <button type="button" id="download-report" class="btn" style="width:100%" disabled>Prepare report</button>
+            <section id="sharing-consent" class="hidden" aria-labelledby="sharing-title">
+              <h3 id="sharing-title">Would you like to share this report?</h3>
+              <p>Choose whether the report should stay private or be prepared for sharing with a psychiatrist or therapist. Roar Wellness Rehabilitation Center is available only for the addiction or compulsive-habit support category. Your choice will be included in the report before it is prepared. This prototype cannot send files.</p>
+              <label class="question"><input type="checkbox" id="consent-psychiatrist"> Psychiatrist</label>
+              <label class="question"><input type="checkbox" id="consent-therapist"> Therapist</label>
+              <label class="question hidden" id="roar-consent-option"><input type="checkbox" id="consent-roar"> Roar Wellness Rehabilitation Center</label>
+              <div class="actions" id="sharing-actions" style="margin-top:10px">
+                <button type="button" class="btn light" id="keep-private">Keep report private and prepare it</button>
+                <button type="button" class="btn" id="confirm-sharing">I consent to prepare a sharing copy</button>
+              </div>
+              <p id="sharing-thanks" class="status hidden" role="status" aria-live="polite"></p>
+            </section>
+          </div>
+          <p class="phq-legend">Score ranges: 0–4 minimal or no depression; 5–9 mild; 10–14 moderate; 15–19 moderately severe; 20–27 severe. A qualified professional must interpret concerns in context.</p>
+          <p class="phq-foot">PHQ‑9</p>
+        </section>
+
+        <section class="panel side-panel crisis-card">
+          <h2>Need urgent support?</h2>
+          <p>If you may harm yourself or someone else, contact emergency services or a trusted person now. A real person can listen and help you make a plan.</p>
+          <div class="resource-buttons">
+            <a class="btn tele-manas" href="tel:14416">Call Tele-MANAS · 14416</a>
+            <a class="btn light" href="https://www.google.com/maps/search/mental+health+counsellor" target="_blank" rel="noopener">Search nearby support</a>
+          </div>
+          <p style="margin-top:10px">The search opens a map; check providers’ credentials and availability.</p>
+        </section>
+      </aside>
+    </main>
+
+    <section class="reviews" id="reviews">
+      <h2>IRIS reviews</h2>
+      <p style="font-size:13px;color:var(--muted)">Share feedback about the experience. Please don’t include private health details.</p>
+      <div class="review-grid">
+        <form class="review-card" id="review-form">
+          <label for="review-name" style="font-size:12px;font-weight:650">Name (or Guest)</label>
+          <input id="review-name" maxlength="80" style="display:block;width:100%;padding:10px;margin:7px 0;border:1px solid var(--hairline);border-radius:8px" placeholder="Guest">
+          <div class="star-pick" id="star-pick" aria-label="Rating"></div>
+          <textarea id="review-comment" maxlength="800" placeholder="What did you think?"></textarea>
+          <p class="status" id="review-status" role="status"></p>
+          <button class="btn" type="submit">Post review</button>
+        </form>
+        <div class="review-card">
+          <strong>What people are saying</strong>
+          <div id="review-list" style="margin-top:10px"><p style="font-size:12px;color:var(--muted)">No reviews yet.</p></div>
+        </div>
+      </div>
+    </section>
+    <footer class="footer">IRIS is an AI support prototype, not medical care.</footer>
+  </div>
+
+  <script>
+    const $=s=>document.querySelector(s);
+    let sessionId=localStorage.getItem("iris_session")||"";
+    let userMessages=0,selectedRating=5,ended=false;
+    let phqScore=sessionStorage.getItem("iris_phq_"+sessionId);
+    phqScore=phqScore===null?null:Number(phqScore);
+    let phqAnswers=readPhqAnswers(sessionId);
+    let reportData={},reportReady=false,reportConsent="none",reportProfile={},reportDownloadUrl="";
+    const reportCategoryLabels={
+      loneliness:"Loneliness",
+      trauma_or_stress:"Trauma or stress",
+      addiction_or_compulsive_habit:"Addiction or compulsive habit",
+      persistent_low_mood:"Persistent low mood",
+      general_support:"General support or other"
+    };
+
+    const qs=[
+      "Little interest or pleasure in doing things",
+      "Feeling down, depressed, or hopeless",
+      "Trouble falling or staying asleep, or sleeping too much",
+      "Feeling tired or having little energy",
+      "Poor appetite or overeating",
+      "Feeling bad about yourself — or that you are a failure or have let yourself or your family down",
+      "Trouble concentrating on things, such as reading or watching television",
+      "Moving or speaking so slowly that other people could have noticed, or being so fidgety or restless that you have been moving around a lot more than usual",
+      "Thoughts that you would be better off dead, or of hurting yourself in some way"
+    ];
+    const choices=[
+      ["Not at all",0],
+      ["Several days",1],
+      ["More than half the days",2],
+      ["Nearly every day",3]
+    ];
+
+    function readPhqAnswers(id){
+      try{return JSON.parse(sessionStorage.getItem("iris_phqa_"+id)||"null")}
+      catch{return null}
+    }
+
+    function show(id){
+      ["terms-screen","animator","login-screen","details-screen","profile-screen","app"]
+        .forEach(name=>$("#"+name).classList.toggle("hidden",name!==id));
+    }
+
+    function saveLogin(data){
+      sessionId=data.session_id;
+      const savedPhq=sessionStorage.getItem("iris_phq_"+sessionId);
+      phqScore=savedPhq===null?null:Number(savedPhq);
+      phqAnswers=readPhqAnswers(sessionId);
+      reportProfile={alias:data.alias||"",email:data.email||"",place:data.place||"",age_group:data.age_group||"",sex:data.sex||"prefer_not_to_say"};
+      loadReportState();
+      localStorage.setItem("iris_session",sessionId);
+      localStorage.setItem("iris_expires",String(Date.parse(data.login_expires_at)));
+    }
+
+    function clearLogin(){
+      localStorage.removeItem("iris_session");
+      localStorage.removeItem("iris_expires");
+      sessionId="";
+    }
+
+    function forgetLocalReport(id){
+      if(!id)return;
+      localStorage.removeItem("iris_report_"+id);
+    }
+    function addBubble(text,who,crisis=false){
+      if(who==="bot")text=visibleReply(text);
+      $("#welcome")?.remove();
+      const row=document.createElement("div");
+      row.className="row "+who;
+      const bubble=document.createElement("div");
+      bubble.className="bubble "+who+(crisis?" crisis":"");
+      bubble.textContent=text;
+      row.append(bubble);
+      $("#chat-box").append(row);
+      $("#chat-box").scrollTop=$("#chat-box").scrollHeight;
+    }
+
+    function loadReportState(){
+      try{reportData=JSON.parse(localStorage.getItem("iris_report_"+sessionId)||"{}")}catch{reportData={}}
+      reportData=cleanReportData(reportData);
+      reportReady=localStorage.getItem("iris_report_ready_"+sessionId)==="true"&&hasCompleteReportData(reportData);
+      reportConsent=localStorage.getItem("iris_report_consent_"+sessionId)||"none";
+    }
+
+    function cleanReportField(value){
+      const text=String(value??"").trim();
+      return /^(?:n\/?a|none|null|unknown|not provided|not available|tbd)$/i.test(text)?"":text;
+    }
+
+    function cleanReportData(candidate){
+      candidate=candidate&&typeof candidate==="object"?candidate:{};
+      const days=cleanReportField(candidate.days);
+      return {
+        issue_type:cleanReportField(candidate.issue_type),
+        issue_category:cleanReportField(candidate.issue_category),
+        reason:cleanReportField(candidate.reason),
+        days:/^[1-9]\d*$/.test(days)?days:"",
+        relative_name:cleanReportField(candidate.relative_name),
+        relative_phone:cleanReportField(candidate.relative_phone),
+        relative_skipped:candidate.relative_skipped===true
+      };
+    }
+
+    function hasCompleteReportData(candidate){
+      const clean=cleanReportData(candidate);
+      return Boolean(clean.issue_type&&clean.issue_category&&clean.reason&&clean.days&&
+        ((clean.relative_name&&clean.relative_phone)||clean.relative_skipped));
+    }
+
+    function saveReportState(){
+      if(!sessionId)return;
+      localStorage.setItem("iris_report_"+sessionId,JSON.stringify(reportData));
+      localStorage.setItem("iris_report_ready_"+sessionId,String(reportReady));
+      localStorage.setItem("iris_report_consent_"+sessionId,reportConsent);
+    }
+
+    function mergeReportData(candidate){
+      if(!candidate||typeof candidate!=="object")return;
+      reportData=cleanReportData(candidate);
+      saveReportState();
+    }
+
+    function visibleReply(value){
+      const text=String(value||"").trim();
+      if(!text.startsWith("{"))return text;
+      try{
+        const parsed=JSON.parse(text);
+        if(typeof parsed.reply==="string")return parsed.reply;
+      }catch{}
+      const match=text.match(/\"reply\"\s*:\s*(\"(?:\\.|[^\"\\])*\")/s);
+      if(match){try{return JSON.parse(match[1])}catch{}}
+      return "I'm here with you. Could you tell me a little more?";
+    }
+
+    function showPhqQuestionnaire(){
+      if(phqScore!==null)return;
+      $("#phq-gate").classList.remove("hidden");
+      const eligible=userMessages>=15&&reportReady;
+      if(eligible){
+        reportConsent="none";
+        saveReportState();
+        $("#phq-gate-status").textContent="Your report details are ready. Complete the mandatory PHQ-9 check-in now; your report will be prepared automatically afterward.";
+        $("#phq-form").classList.remove("hidden");
+      }else{
+        $("#phq-gate-status").textContent=userMessages<15
+          ?"After 15 messages, IRIS will ask a few questions needed for your report. The mandatory PHQ-9 check-in starts automatically when those details are ready."
+          :"IRIS is still gathering the information needed for your report. Continue the conversation; the mandatory PHQ-9 check-in will start automatically when those details are ready.";
+        $("#phq-form").classList.add("hidden");
+      }
+    }
+
+    function renderPhq(){
+      const form=$("#phq-form");
+      form.classList.add("checklist");
+      form.replaceChildren();
+      qs.forEach((question,index)=>{
+        const label=document.createElement("label");
+        label.className="question";
+        label.textContent=`${index+1}. ${question}`;
+        const select=document.createElement("select");
+        select.required=true;
+        select.name=`q${index}`;
+        select.innerHTML='<option value="" selected disabled>Choose an answer</option>'+choices.map(([text,value])=>`<option value="${value}">${text}</option>`).join("");
+        label.append(select);
+        form.append(label);
+      });
+      const submit=document.createElement("button");
+      submit.type="submit";
+      submit.className="btn";
+      submit.textContent="See my check-in";
+      form.append(submit);
+    }
+
+    renderPhq();
+
+    function showSharingConsent(){
+      $("#roar-consent-option").classList.toggle("hidden",reportData.issue_category!=="addiction_or_compulsive_habit");
+      $("#consent-psychiatrist").checked=false;
+      $("#consent-therapist").checked=false;
+      $("#consent-roar").checked=false;
+      $("#consent-psychiatrist").disabled=false;
+      $("#consent-therapist").disabled=false;
+      $("#consent-roar").disabled=false;
+      $("#keep-private").disabled=false;
+      $("#confirm-sharing").disabled=false;
+      $("#sharing-actions").classList.remove("hidden");
+      $("#sharing-thanks").classList.add("hidden");
+      $("#sharing-consent").classList.remove("hidden");
+      $("#download-report").disabled=true;
+      $("#download-report").textContent="Choose a sharing option to prepare the report";
+      $("#report-status").textContent="Your mandatory check-in is complete. Choose a sharing option; your choice will be included before the report is prepared.";
+    }
+
+    $("#phq-form").addEventListener("submit",event=>{
+      event.preventDefault();
+      const answers=[...event.currentTarget.querySelectorAll("select")].map(select=>Number(select.value));
+      if(answers.length!==9||answers.some(value=>!Number.isInteger(value)||value<0||value>3))return;
+      phqAnswers=answers;
+      phqScore=answers.reduce((sum,value)=>sum+value,0);
+      sessionStorage.setItem("iris_phq_"+sessionId,String(phqScore));
+      sessionStorage.setItem("iris_phqa_"+sessionId,JSON.stringify(phqAnswers));
+      showPhqResult(phqScore);
+      if(answers[8]>0){
+        $("#score-note").textContent="You selected an answer other than ‘Not at all’ for thoughts of death or self-harm. Consider telling someone you trust and contacting a qualified professional. If you may act on these thoughts or are in immediate danger, contact emergency services now; in India call Tele-MANAS at 14416.";
+      }
+      showSharingConsent();
+    });
+
+    async function prepareReport(){
+      const button=$("#download-report");
+      const status=$("#report-status");
+      if(reportDownloadUrl){
+        const link=document.createElement("a");
+        link.href=reportDownloadUrl;
+        link.download="iris-support-report.txt";
+        link.click();
+        return;
+      }
+      if(!Array.isArray(phqAnswers)||phqAnswers.length!==9){
+        status.textContent="Complete the PHQ-9 check-in before preparing the report.";
+        return;
+      }
+      button.disabled=true;
+      button.textContent="Preparing…";
+      status.textContent="Preparing your report on this computer…";
+      try{
+        const response=await fetch("/api/report",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            session_id:sessionId,
+            report_data:reportData,
+            report_consent:reportConsent,
+            phq_answers:phqAnswers
+          })
+        });
+        const data=await response.json();
+        if(!response.ok)throw Error(data.error||"Could not prepare the report.");
+        const labels=["Not at all","Several days","More than half the days","Nearly every day"];
+        const report=[
+          "IRIS SUPPORT REPORT",
+          "Screening and conversation information only; not a diagnosis.",
+          "",
+          `Name: ${reportProfile.alias||"Not provided"}`,
+          `Email: ${reportProfile.email||"Not provided"}`,
+          `Age category: ${reportProfile.age_group||"Not provided"}`,
+          `Sex: ${reportProfile.sex||"Not provided"}`,
+          `Place: ${reportProfile.place||"Not provided"}`,
+          `Concern (user description): ${reportData.issue_type||"Not provided"}`,
+          "Support category (not a diagnosis): " + (reportCategoryLabels[reportData.issue_category]||"Not provided"),
+          `Reason shared: ${reportData.reason||"Not provided"}`,
+          `Duration in days: ${reportData.days||"Not provided"}`,
+          `Close contact: ${reportData.relative_skipped?"User chose not to provide contact details":reportData.relative_name||"Not provided"}`,
+          `Close contact phone: ${reportData.relative_phone||"Not provided"}`,
+          "",
+          `PHQ-9 total: ${data.score}/27 (${data.score_band})`,
+          ...phqAnswers.map((answer,index)=>`${index+1}. ${qs[index]}: ${labels[answer]}`),
+          "",
+          "Sharing consent: " + sharingConsentDescription(reportConsent) + ".",
+          "This report has not been sent to anyone.",
+          "",
+          data.summary
+        ];
+        reportDownloadUrl=URL.createObjectURL(new Blob([report.join("\n")],{type:"text/plain;charset=utf-8"}));
+        $("#sharing-consent").classList.remove("hidden");
+        $("#sharing-actions").classList.add("hidden");
+        status.textContent="Your report is ready. Your sharing choice is included; the file has not been sent to anyone.";
+        button.textContent="Download report";
+      }catch(error){
+        status.textContent=error.message;
+        button.textContent="Try preparing report again";
+      }finally{
+        button.disabled=false;
+      }
+    }
+
+    $("#download-report").addEventListener("click",prepareReport);
+
+    function sharingConsentDescription(consent){
+      const descriptions={
+        none:"No sharing authorized; keep the report private",
+        psychiatrist:"User consented to prepare a copy for a psychiatrist",
+        therapist:"User consented to prepare a copy for a therapist",
+        both:"User consented to prepare a copy for a psychiatrist and therapist",
+        rehab_center:"User consented to prepare a copy for Roar Wellness Rehabilitation Center",
+        therapist_and_rehab:"User consented to prepare a copy for a therapist and Roar Wellness Rehabilitation Center",
+        psychiatrist_and_rehab:"User consented to prepare a copy for a psychiatrist and Roar Wellness Rehabilitation Center",
+        both_and_rehab:"User consented to prepare a copy for a psychiatrist, therapist, and Roar Wellness Rehabilitation Center"
+      };
+      return descriptions[consent]||"No sharing authorized; keep the report private";
+    }
+
+    async function recordSharingChoice(consented){
+      const recipients=[];
+      if(consented){
+        if($("#consent-psychiatrist").checked)recipients.push("psychiatrist");
+        if($("#consent-therapist").checked)recipients.push("therapist");
+        if(reportData.issue_category==="addiction_or_compulsive_habit"&&$("#consent-roar").checked){
+          recipients.push("Roar Wellness Rehabilitation Center");
+        }
+        if(!recipients.length){
+          $("#report-status").textContent="Select at least one recipient, or choose to keep the report private.";
+          return;
+        }
+      }
+      const rehabSelected=recipients.includes("Roar Wellness Rehabilitation Center");
+      if(rehabSelected&&reportData.issue_category!=="addiction_or_compulsive_habit"){
+        $("#report-status").textContent="Roar Wellness is available only for the addiction or compulsive-habit category.";
+        return;
+      }
+      if(!consented)reportConsent="none";
+      else if(rehabSelected){
+        reportConsent=recipients.includes("psychiatrist")&&recipients.includes("therapist")
+          ?"both_and_rehab"
+          :recipients.includes("psychiatrist")
+            ?"psychiatrist_and_rehab"
+            :recipients.includes("therapist")?"therapist_and_rehab":"rehab_center";
+      }else{
+        reportConsent=recipients.includes("psychiatrist")&&recipients.includes("therapist")
+          ?"both":recipients.includes("psychiatrist")?"psychiatrist":"therapist";
+      }
+      saveReportState();
+      $("#sharing-thanks").textContent=consented
+        ?"Thank you for your consent. Your choice is included as the report is prepared. The file will not be sent automatically."
+        :"Thank you. Your private choice is included as the report is prepared.";
+      $("#sharing-thanks").classList.remove("hidden");
+      $("#keep-private").disabled=true;
+      $("#confirm-sharing").disabled=true;
+      $("#consent-psychiatrist").disabled=true;
+      $("#consent-therapist").disabled=true;
+      $("#consent-roar").disabled=true;
+      $("#sharing-consent").classList.remove("hidden");
+      $("#sharing-actions").classList.add("hidden");
+      $("#download-report").disabled=false;
+      $("#download-report").textContent="Preparing report…";
+      await prepareReport();
+    }
+    $("#keep-private").addEventListener("click",()=>recordSharingChoice(false));
+    $("#confirm-sharing").addEventListener("click",()=>recordSharingChoice(true));
+
+    function finishConversation(data){
+      forgetLocalReport(sessionId);
+      clearLogin();
+      ended=true;
+      $("#composer").classList.add("hidden");
+      const banner=$("#end-banner");
+      banner.replaceChildren();
+      const heading=document.createElement("strong");
+      heading.textContent="Conversation complete";
+      banner.append(heading);
+      if(data.summary){
+        const summary=document.createElement("p");
+        summary.textContent=data.summary;
+        banner.append(summary);
+      }
+      if(Array.isArray(data.next_steps)&&data.next_steps.length){
+        const list=document.createElement("ul");
+        data.next_steps.forEach(step=>{
+          const item=document.createElement("li");
+          item.textContent=step;
+          list.append(item);
+        });
+        banner.append(list);
+      }
+      const note=document.createElement("p");
+      note.textContent="Your session has ended and its chat data has been deleted.";
+      banner.append(note);
+      banner.classList.remove("hidden");
+      $("#reviews").scrollIntoView({behavior:"smooth"});
+    }
+
+    function showPhqResult(score){
+      const bands=[
+        [4,"Minimal or no depression","#4c8577"],
+        [9,"Mild depression","#8da85d"],
+        [14,"Moderate depression","#e0ad4c"],
+        [19,"Moderately severe depression","#d58249"],
+        [27,"Severe depression","#c85f5f"]
+      ];
+      const [,label,color]=bands.find(([maximum])=>score<=maximum);
+      $("#phq-form").classList.add("hidden");
+      $("#phq-gate").classList.remove("hidden");
+      $("#phq-result").classList.remove("hidden");
+      $("#pie-score").textContent=`${score}/27`;
+      $("#phq-pie").style.setProperty("--score-angle",`${score/27*360}deg`);
+      $("#phq-pie").style.setProperty("--distress-color",color);
+      $("#phq-pie").setAttribute(
+        "aria-label",
+        `PHQ-9 score ${score} of 27, ${label} screening range`
+      );
+      $("#score-text").textContent=`${label} screening range`;
+      $("#score-note").textContent=score>=10
+        ?"Consider discussing this screening result with a qualified health professional. This score does not diagnose depression."
+        :"This screening result is one snapshot and does not diagnose depression or replace a professional conversation.";
+    }
+
+    function showHistory(data,transitioning=false){
+      $("#chat-box").innerHTML=
+        '<div class="welcome" id="welcome"><strong>Hi, I’m IRIS.</strong>'+
+        'What’s been on your mind lately?<div class="prompts">'+
+        '<button class="prompt">I’ve been feeling stressed lately.</button>'+
+        '<button class="prompt">Something happened today.</button>'+
+        '<button class="prompt">I don’t really know what’s wrong.</button></div></div>';
+      $("#hello").textContent=`Here with you, ${data.alias}. You can take your time.`;
+      $("#profile-email").value=data.email||"";
+      $("#profile-alias").value=data.alias||"";
+      $("#profile-place").value=data.place;
+      $("#profile-age").value=data.age_group;
+      $("#profile-sex").value=data.sex.replaceAll("_"," ");
+      if(!transitioning)show("app");
+
+      (data.history||[]).forEach(message=>{
+        addBubble(
+          message.content,
+          message.role==="user"?"user":"bot",
+          /Tele-MANAS|immediate danger/i.test(message.content)
+        );
+      });
+
+      userMessages=(data.history||[]).filter(message=>message.role==="user").length;
+      if(userMessages>=15)showPhqQuestionnaire();
+      if(reportReady)showPhqQuestionnaire();
+      if(phqScore!==null&&Number.isFinite(phqScore)){
+        showPhqResult(phqScore);
+        if(reportReady&&Array.isArray(phqAnswers)&&phqAnswers.length===9)showSharingConsent();
+      }
+      loadReviews();
+    }
+
+    /* Slide transition: the login / create-account screen slides up and out
+       while the home page rises in from below. */
+    function enterMainWebsite(data,formScreenId){
+      const formScreen=$("#"+formScreenId);
+      const mainWebsite=$("#app");
+
+      showHistory(data,true);                 // fill the home page first
+      document.body.style.overflow="hidden";  // no scrollbar flash mid-slide
+      mainWebsite.classList.remove("hidden");
+      void mainWebsite.offsetWidth;           // flush layout so both animations start together
+      mainWebsite.classList.add("account-slide-in");   // home rises from below
+      formScreen.classList.add("account-slide-out");   // form slides up and out
+
+      let done=false;
+      const finish=()=>{
+        if(done)return;
+        done=true;
+        show("app");                          // hides every other screen
+        formScreen.classList.remove("account-slide-out");
+        mainWebsite.classList.remove("account-slide-in");
+        document.body.style.overflow="";
+        window.scrollTo(0,0);
+      };
+      mainWebsite.addEventListener("animationend",e=>{if(e.target===mainWebsite)finish()});
+      setTimeout(finish,2000);      // fallback if animationend never fires
+    }
+
+    $("#consent").addEventListener("change",event=>{
+      $("#agree").disabled=!event.target.checked;
+      $("#terms-login").disabled=!event.target.checked;
+    });
+
+    $("#decline").onclick=()=>{
+      $("#terms-title").textContent="That’s okay";
+      $("#terms-screen .card").innerHTML=
+        "<h1>That’s okay</h1><p>You can close this page. You can return whenever you feel ready.</p>";
+    };
+
+    $("#agree").onclick=()=>{
+      show("animator");
+      setTimeout(()=>show("details-screen"),1000);
+    };
+
+    $("#terms-login").onclick=()=>{
+      show("animator");
+      setTimeout(()=>show("login-screen"),850);
+    };
+
+    $("#details-form").addEventListener("submit",async event=>{
+      event.preventDefault();
+      $("#form-status").textContent="";
+      const payload={
+        session_id:sessionId,
+        email:$("#email").value,
+        alias:$("#alias").value,
+        place:$("#place").value,
+        age_group:$("#age").value,
+        sex:$("#sex").value
+      };
+      try{
+        const response=await fetch("/api/signup",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(payload)
+        });
+        const data=await response.json();
+        if(!response.ok)throw Error(data.error||"Could not start session.");
+        saveLogin(data);
+        enterMainWebsite(data,"details-screen");
+      }catch(error){
+        $("#form-status").textContent=error.message;
+      }
+    });
+
+    $("#show-login").onclick=()=>show("login-screen");
+    $("#show-signup").onclick=()=>show("details-screen");
+
+    $("#login-form").addEventListener("submit",async event=>{
+      event.preventDefault();
+      $("#login-status").textContent="";
+      try{
+        const response=await fetch("/api/login",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({email:$("#login-email").value})
+        });
+        const data=await response.json();
+        if(!response.ok)throw Error(data.error||"Could not log in.");
+        saveLogin(data);
+        enterMainWebsite(data,"login-screen");
+      }catch(error){
+        $("#login-status").textContent=error.message;
+      }
+    });
+
+    async function restoreLogin(){
+      if(!sessionId)return;
+      const expiry=Number(localStorage.getItem("iris_expires")||0);
+      if(expiry&&Date.now()>=expiry){
+        forgetLocalReport(sessionId);
+        clearLogin();
+        show("terms-screen");
+        return;
+      }
+
+      try{
+        const response=await fetch("/api/session",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({session_id:sessionId,phq_score:phqScore})
+        });
+        const data=await response.json();
+        if(!response.ok)throw Error("Expired");
+        if(data.report_flow_reset)forgetLocalReport(sessionId);
+        saveLogin(data);
+        showHistory(data);
+      }catch{
+        clearLogin();
+        show("terms-screen");
+      }
+    }
+
+    $("#profile-button").onclick=()=>{
+      if(sessionId)show("profile-screen");
+    };
+
+    $("#cancel-profile").onclick=()=>show("app");
+
+    function logout(){
+      clearLogin();
+      $("#chat-box").innerHTML="";
+      $("#consent").checked=false;
+      $("#agree").disabled=true;
+      $("#terms-login").disabled=true;
+      show("terms-screen");
+    }
+
+    $("#logout-button").onclick=logout;
+    $("#logout-button-top").onclick=logout;
+
+    $("#chat-box").addEventListener("click",event=>{
+      const button=event.target.closest(".prompt");
+      if(button){
+        $("#message").value=button.textContent;
+        $("#message").focus();
+      }
+    });
+
+    $("#composer").addEventListener("submit",async event=>{
+      event.preventDefault();
+      const box=$("#message");
+      const text=box.value.trim();
+      if(!text||ended)return;
+
+      addBubble(text,"user");
+      box.value="";
+      box.style.height="auto";
+      $("#send").disabled=true;
+
+      const typing=document.createElement("div");
+      typing.className="row bot";
+      typing.innerHTML='<div class="bubble bot">IRIS is thinking…</div>';
+      $("#chat-box").append(typing);
+
+      try{
+        const response=await fetch("/api/chat",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            session_id:sessionId,
+            message:text,
+            phq_score:phqScore,
+            report_data:reportData,
+            report_consent:reportConsent
+          })
+        });
+        const data=await response.json();
+        if(!response.ok){
+          throw Error(data.error||"IRIS could not reply right now. Your message is saved; please try again shortly.");
+        }
+        typing.remove();
+        const priorUserMessages=userMessages;
+        userMessages=data.user_messages;
+        if(priorUserMessages<15&&userMessages>=15){
+          reportData={};
+          reportReady=false;
+          reportConsent="";
+          reportConsent="none";
+          saveReportState();
+        }
+        mergeReportData(data.report_data);
+        reportReady=hasCompleteReportData(reportData)&&(reportReady||data.report_details_ready===true);
+        saveReportState();
+        const reply=visibleReply(data.reply);
+        addBubble(reply,"bot",/Tele-MANAS|immediate danger/i.test(reply));
+        if(userMessages>=15||reportReady)showPhqQuestionnaire();
+        if(data.session_closed)finishConversation(data);
+      }catch(error){
+        typing.remove();
+        addBubble(
+          error.message==="Failed to fetch"
+            ?"Could not reach IRIS. Check that Flask is running, then try again."
+            :error.message,
+          "bot",
+          true
+        );
+      }finally{
+        $("#send").disabled=false;
+      }
+    });
+
+    $("#message").addEventListener("keydown",event=>{
+      if(event.key==="Enter"&&!event.shiftKey){
+        event.preventDefault();
+        $("#composer").requestSubmit();
+      }
+    });
+
+    $("#share").onclick=async()=>{
+      try{
+        await navigator.clipboard.writeText(location.origin+location.pathname);
+        $("#share").textContent="Link copied";
+      }catch{
+        $("#share").textContent=location.origin+location.pathname;
+      }
+    };
+
+    function stars(){
+      const wrapper=$("#star-pick");
+      for(let index=1;index<=5;index++){
+        const button=document.createElement("button");
+        button.type="button";
+        button.textContent="★";
+        button.setAttribute("aria-label",`${index} stars`);
+        button.onclick=()=>{
+          selectedRating=index;
+          paintStars();
+        };
+        wrapper.append(button);
+      }
+      paintStars();
+    }
+
+    function paintStars(){
+      [...$("#star-pick").children].forEach((star,index)=>{
+        star.classList.toggle("active",index<selectedRating);
+      });
+    }
+
+    stars();
+
+    async function loadReviews(){
+      try{
+        const response=await fetch("/api/reviews");
+        const rows=await response.json();
+        $("#review-list").innerHTML=rows.length
+          ?rows.map(review=>(
+            `<div class="review-entry"><span class="stars">`+
+            `${"★".repeat(review.rating)}${"☆".repeat(5-review.rating)}`+
+            `</span> <strong>${escapeHtml(review.alias)}</strong><br>`+
+            `${escapeHtml(review.comment)}</div>`
+          )).join("")
+          :'<p style="font-size:12px;color:var(--muted)">No reviews yet.</p>';
+      }catch{}
+    }
+
+    function escapeHtml(value){
+      return String(value).replace(/[&<>"']/g,character=>({
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        '"':"&quot;",
+        "'":"&#39;"
+      }[character]));
+    }
+
+    $("#review-form").addEventListener("submit",async event=>{
+      event.preventDefault();
+      $("#review-status").textContent="";
+      try{
+        const response=await fetch("/api/reviews",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            alias:$("#review-name").value,
+            comment:$("#review-comment").value,
+            rating:selectedRating
+          })
+        });
+        const data=await response.json();
+        if(!response.ok)throw Error(data.error||"Could not post review.");
+        $("#review-comment").value="";
+        $("#review-status").textContent="Thanks for sharing your feedback.";
+        await loadReviews();
+      }catch(error){
+        $("#review-status").textContent=error.message;
+      }
+    });
+
+    restoreLogin();
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Keep passwords and secret settings private
+.env
+
+# Leave out Python virtual environments
+.venv/
+venv/
+
+# Leave out temporary Python files
+__pycache__/
+*.py[cod]
+
+# Leave out your local database
+instance/
+*.db
