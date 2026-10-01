@@ -229,7 +229,7 @@ def json_error(message, status=400):
 def request_gemini(prompt):
     """Call Gemini and request JSON output for IRIS."""
     response = client.models.generate_content(
-        model="gemini-1.5-flash",  # or "gemini-2.0-flash"
+        model="gemini-1.5-flash",  # or "gemini-3.8-flash"
         contents=prompt,            # Fixed: matches parameter name
         config={
             "response_mime_type": "application/json",
