@@ -1,7 +1,8 @@
 """IRIS: a small, supportive listening companion prototype.
 
 This is not a clinical service. Do not deploy with real health data without
-security, privacy, clinical, and legal review. Chat content is processed by local Ollama.
+security, privacy, clinical, and legal review. Chat content is processed by
+Google Gemini using the configured Gemini API.
 """
 import os
 import re
@@ -10,34 +11,36 @@ import threading
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from jinja2 import ChoiceLoader, FileSystemLoader
 from sqlalchemy import inspect
+from google import genai
 
 load_dotenv()
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=APP_DIR)
-# Accept either index.html next to app.py or the conventional templates/index.html.
 app.jinja_loader = ChoiceLoader([
     FileSystemLoader(APP_DIR),
     FileSystemLoader(os.path.join(APP_DIR, "templates")),
 ])
-# Flask-SQLAlchemy stores relative SQLite URLs under instance_path. Ensure that
-# folder exists on fresh installs and hosts that don't create it automatically.
 os.makedirs(app.instance_path, exist_ok=True)
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "dev-only-change-me")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///iris.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:2b").strip()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
+
+if not GEMINI_API_KEY:
+    raise RuntimeError("GEMINI_API_KEY is not configured.")
+
+client = genai.Client(api_key=GEMINI_API_KEY)
+
 ACTIVE_WINDOW_DAYS = 7
 VALID_AGES = {"12-18", "19-28", "29-40", "40+"}
 VALID_SEX = {"male", "female", "prefer_not_to_say"}
@@ -121,7 +124,6 @@ def seed_demo_providers():
 
 with app.app_context():
     db.create_all()
-    # Add this column to existing prototype databases without deleting user rows.
     user_columns = {
         column["name"]
         for column in inspect(db.engine).get_columns(User.__tablename__)
@@ -165,14 +167,14 @@ suggest them to minors. For trauma or a difficult event, validate feelings and o
 contacting someone trusted or a licensed therapist. For addiction or compulsive habits, avoid
 shaming. After the PHQ-9 check-in, the user may choose Roar Wellness Rehabilitation Center as
 an optional recipient only when they selected the addiction or compulsive-habit support category.
-Ask for explicit consent first. This prototype has no delivery integration and must never claim
-a report was sent.
+Ask for explicit consent first. This prototype has no delivery integration and must never claim a
+report was sent.
 For persistent
 low mood, suggest a qualified mental-health professional without diagnosing depression. Never
 invent clinicians, email addresses, clinics, or local services. Do not claim confidentiality:
-this prototype processes chat text with Ollama locally and stores it in a local database. Avoid repeating
-identifying details. Never send a report or personal information to anyone. A private summary may
-be shown to the user at automatic chat completion for them to share if they choose.
+this prototype processes chat text with Google Gemini using the configured Gemini API and stores
+it in a local database. Avoid repeating identifying details. Never send a report or personal information
+to anyone. A private summary may be shown to the user at automatic chat completion for them to share if they choose.
 If there is any safety concern, prioritize immediate human help and do not mark the chat complete.
 If a PHQ-9 self-check score is supplied, treat it only as a screening indicator for distress,
 not as a diagnosis or proof of a mental illness. Do not classify a mental illness from it.
@@ -208,14 +210,14 @@ Set report_details_ready true only when all required report details above have b
 or the user clearly skipped the optional relative contact.
 Set conversation_complete true only after report details are ready, the user has completed PHQ-9,
 and they have nothing more they want to add. In the final reply, summarize briefly, offer next steps, and close
-warmly without asking another question. Do not complete a chat with any possible self-harm, suicide,
-or immediate danger concern."""
+warmly without asking another question. Do not complete a chat with any possible self-harm,
+suicide, or immediate danger concern."""
 
 AGE_FOCUS = {
     "12-18": "If relevant to what they share, explore loneliness, belonging, and activities or routines. Use simple language.",
     "19-28": "If relevant, explore loneliness, social connection, and any habits the person feels are becoming hard to control.",
     "29-40": "If relevant, explore loneliness, major life events, and habits the person feels are becoming hard to control. Let the person set the pace around painful experiences.",
-    "40+": "If relevant, gently ask how long low mood has been present, about connection, and about habits the person feels are hard to control. Let them set the pace.",
+    "40+": "If relevant, gently ask how long low mood has been present, about connection, and about habits the person feels are hard to control. Let the person set the pace.",
 }
 
 
@@ -223,47 +225,20 @@ def json_error(message, status=400):
     return jsonify({"error": message}), status
 
 
-def request_ollama(prompt):
-    """Call the local Ollama chat API with bounded, non-thinking generation."""
-    payload = {
-        "model": OLLAMA_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": False,
-        "format": "json",
-        "think": False,
-        "options": {
+def request_gemini(prompt):
+    """Call Gemini and request JSON output for IRIS."""
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
+        config={
+            "response_mime_type": "application/json",
             "temperature": 0.4,
-            "num_predict": 300,
-            "num_ctx": 4096,
+            "max_output_tokens": 1000,
         },
-    }
-    ollama_request = Request(
-        f"{OLLAMA_URL}/api/chat",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
     )
-    result = None
-    last_error = None
-    for attempt in range(2):
-        try:
-            with urlopen(ollama_request, timeout=180) as response:
-                result = json.loads(response.read().decode("utf-8"))
-            break
-        except HTTPError as exc:
-            last_error = exc
-            if exc.code < 500 or attempt == 1:
-                raise
-        except (URLError, TimeoutError) as exc:
-            last_error = exc
-            if attempt == 1:
-                raise
-        time.sleep(1)
-    if result is None:
-        raise RuntimeError("Ollama did not return a response.") from last_error
-    content = result.get("message", {}).get("content", "")
+    content = (response.text or "").strip()
     if not content:
-        raise RuntimeError("Ollama returned an empty response.")
+        raise RuntimeError("Gemini returned an empty response.")
     return content
 
 
@@ -281,7 +256,7 @@ def phq_band(score):
 
 
 def extract_model_json(raw_text):
-    """Find a JSON object in Ollama output, including fenced or prefixed output."""
+    """Find a JSON object in Gemini output, including fenced or prefixed output."""
     text = str(raw_text or "").strip()
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.I).strip()
@@ -399,14 +374,13 @@ def contact_declined(value):
 
 
 def report_collection_reply(report_data, message, message_count, previous_assistant):
-    """Collect report details deterministically; Ollama does not control this workflow."""
+    """Collect report details deterministically; Gemini does not control this workflow."""
     if message_count == 15:
         return f"{REPORT_INTRO}\n\n{REPORT_QUESTIONS['issue_type']}"
 
     if report_details_are_ready(report_data):
         if previous_assistant and previous_assistant.rstrip().endswith(REPORT_READY_REPLY):
             return REPORT_READY_REPLY
-        # Discard complete-looking values left by the old model-driven extractor.
         report_data.update({
             "issue_type": "", "issue_category": "", "reason": "", "days": "",
             "relative_name": "", "relative_phone": "", "relative_skipped": False,
@@ -415,8 +389,6 @@ def report_collection_reply(report_data, message, message_count, previous_assist
 
     step = next_report_step(report_data)
     question = REPORT_QUESTIONS[step]
-    # Only treat a message as a report answer when the previous assistant turn asked
-    # that exact question. Existing older conversations start the structured flow here.
     if not previous_assistant or not previous_assistant.rstrip().endswith(question):
         return f"As promised, we’ll now gather the brief details for your report.\n\n{question}"
 
@@ -606,8 +578,6 @@ def restore_session():
             for question in REPORT_QUESTIONS.values()
         ) or last_assistant.rstrip().endswith(REPORT_READY_REPLY)
         if not flow_is_active:
-            # The previous model-driven extraction was unreliable; restart with a
-            # fixed prompt and discard stale client-side values on the browser.
             opener = f"{REPORT_INTRO}\n\n{REPORT_QUESTIONS['issue_type']}"
             db.session.add(ChatMessage(session_id=session_id, role="assistant", content=opener))
             db.session.commit()
@@ -745,8 +715,9 @@ def chat():
                 "as one self-reported screening context, not a diagnosis. Do not "
                 "infer a mental illness or its severity from this score."
             )
+        raw = ""
         try:
-            raw = request_ollama(prompt).strip()
+            raw = request_gemini(prompt).strip()
             if raw.startswith("```"):
                 raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.I).strip()
             parsed = extract_model_json(raw)
@@ -766,7 +737,7 @@ def chat():
             model_complete = parsed.get("conversation_complete") is True
             report_details_ready = report_details_are_ready(report_data)
         except json.JSONDecodeError:
-            app.logger.warning("Ollama returned non-JSON; leaving the conversation open")
+            app.logger.warning("Gemini returned non-JSON; leaving the conversation open")
             reply = model_reply_fallback(raw)
             topic = "general_support"
             summary = ""
@@ -774,10 +745,9 @@ def chat():
             model_complete = False
             report_details_ready = False
         except Exception:
-            app.logger.exception("Ollama request failed")
+            app.logger.exception("Gemini request failed")
             return json_error(
-                "IRIS could not reach Ollama. Make sure Ollama is running and "
-                "the qwen3.5:2b model is installed.",
+                "IRIS could not reach Gemini. Please check your Gemini API key and connection.",
                 503,
             )
 
@@ -818,7 +788,7 @@ def chat():
 
 @app.post("/api/report")
 def generate_report():
-    """Generate a non-diagnostic report summary locally with Ollama."""
+    """Generate a non-diagnostic report summary using Gemini."""
     purge_stale_users()
     data = request.get_json(silent=True) or {}
     session_id = str(data.get("session_id", ""))
@@ -920,15 +890,15 @@ def generate_report():
         '{"summary":"..."}.\n\nDATA:\n' + json.dumps(supplied, ensure_ascii=False)
     )
     try:
-        raw = request_ollama(prompt).strip()
+        raw = request_gemini(prompt).strip()
         if raw.startswith("```"):
             raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.I).strip()
         parsed = json.loads(raw)
         summary = str(parsed.get("summary") or "").strip()[:3000]
         if not summary:
-            raise ValueError("Ollama returned an empty report summary.")
+            raise ValueError("Gemini returned an empty report summary.")
     except Exception:
-        app.logger.exception("Ollama report generation failed")
+        app.logger.exception("Gemini report generation failed")
         return json_error("IRIS could not draft the report right now. The report details are still available to download.", 503)
 
     return jsonify({"summary": summary, "score": score, "score_band": phq_band(score)})
@@ -967,4 +937,9 @@ if __name__ == "__main__":
     with app.app_context():
         purge_stale_users()
     threading.Thread(target=cleanup_loop, daemon=True, name="iris-session-cleanup").start()
-    app.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "5000")), debug=os.getenv("FLASK_DEBUG", "0") == "1", use_reloader=False)
+    app.run(
+        host=os.getenv("HOST", "127.0.0.1"),
+        port=int(os.getenv("PORT", "5000")),
+        debug=os.getenv("FLASK_DEBUG", "0") == "1",
+        use_reloader=False,
+    )
