@@ -35,7 +35,7 @@ db = SQLAlchemy(app)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Change this line in app.py:
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
 
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY is not configured.")
@@ -229,8 +229,8 @@ def json_error(message, status=400):
 def request_gemini(prompt):
     """Call Gemini and request JSON output for IRIS."""
     response = client.models.generate_content(
-        model="gemini-1.5-flash",  # or "gemini-3.8-flash"
-        contents=prompt,            # Fixed: matches parameter name
+        model="gemini-3.8-flash",  # Updated active model ID
+        contents=prompt,
         config={
             "response_mime_type": "application/json",
             "temperature": 0.4,
