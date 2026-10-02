@@ -20,10 +20,10 @@
     @media(max-width:560px){.account-actions{top:9px;right:9px}.account-actions button{padding:8px 9px;font-size:11px}.hero-inner{padding-top:32px}}
   </style>
   <style>
-    .account-slide-out{animation:irisAccountUp 1.8s cubic-bezier(.22,.75,.2,1) both;pointer-events:none}
-    #app.account-slide-in{position:relative;z-index:21;animation:irisAppRise 1.8s cubic-bezier(.22,.75,.2,1) both}
-    @keyframes irisAccountUp{from{transform:translateY(0);opacity:1}to{transform:translateY(-100vh);opacity:.96}}
-    @keyframes irisAppRise{from{transform:translateY(100vh)}to{transform:translateY(0)}}
+    .account-screen-leaving{animation:irisAccountUp 1.8s cubic-bezier(.22,.75,.2,1) both;pointer-events:none}
+    #app.home-screen-entering{position:relative;z-index:21;animation:irisHomeRise 1.8s cubic-bezier(.22,.75,.2,1) both}
+    @keyframes irisAccountUp{from{transform:translateY(0)}to{transform:translateY(-100vh)}}
+    @keyframes irisHomeRise{from{transform:translateY(100vh)}to{transform:translateY(0)}}
   </style>
 </head>
 <body>
@@ -286,7 +286,12 @@
     function forgetLocalReport(id){
       if(!id)return;
       localStorage.removeItem("iris_report_"+id);
+      localStorage.removeItem("iris_report_ready_"+id);
+      localStorage.removeItem("iris_report_consent_"+id);
+      sessionStorage.removeItem("iris_phq_"+id);
+      sessionStorage.removeItem("iris_phqa_"+id);
     }
+
     function addBubble(text,who,crisis=false){
       if(who==="bot")text=visibleReply(text);
       $("#welcome")?.remove();
@@ -484,7 +489,11 @@
           "Sharing consent: " + sharingConsentDescription(reportConsent) + ".",
           "This report has not been sent to anyone.",
           "",
-          data.summary
+          "Report Summary",
+          data.summary,
+          "",
+          "User's Thoughts",
+          data.user_thoughts
         ];
         reportDownloadUrl=URL.createObjectURL(new Blob([report.join("\n")],{type:"text/plain;charset=utf-8"}));
         $("#sharing-consent").classList.remove("hidden");
@@ -652,31 +661,29 @@
       loadReviews();
     }
 
-    /* Slide transition: the login / create-account screen slides up and out
-       while the home page rises in from below. */
     function enterMainWebsite(data,formScreenId){
       const formScreen=$("#"+formScreenId);
       const mainWebsite=$("#app");
-
-      showHistory(data,true);                 // fill the home page first
-      document.body.style.overflow="hidden";  // no scrollbar flash mid-slide
+      show(formScreenId);
       mainWebsite.classList.remove("hidden");
-      void mainWebsite.offsetWidth;           // flush layout so both animations start together
-      mainWebsite.classList.add("account-slide-in");   // home rises from below
-      formScreen.classList.add("account-slide-out");   // form slides up and out
-
-      let done=false;
-      const finish=()=>{
-        if(done)return;
-        done=true;
-        show("app");                          // hides every other screen
-        formScreen.classList.remove("account-slide-out");
-        mainWebsite.classList.remove("account-slide-in");
-        document.body.style.overflow="";
-        window.scrollTo(0,0);
+      mainWebsite.classList.remove("home-screen-entering");
+      formScreen.classList.remove("account-screen-leaving");
+      void mainWebsite.offsetWidth;
+      void formScreen.offsetWidth;
+      mainWebsite.classList.add("home-screen-entering");
+      formScreen.classList.add("account-screen-leaving");
+      showHistory(data,true);
+      const finishTransition=()=>{
+        formScreen.classList.add("hidden");
+        formScreen.classList.remove("account-screen-leaving");
+        mainWebsite.classList.remove("home-screen-entering");
       };
-      mainWebsite.addEventListener("animationend",e=>{if(e.target===mainWebsite)finish()});
-      setTimeout(finish,2000);      // fallback if animationend never fires
+      const fallback=setTimeout(finishTransition,1900);
+      formScreen.addEventListener("animationend",event=>{
+        if(event.target!==formScreen||event.animationName!=="irisAccountUp")return;
+        clearTimeout(fallback);
+        finishTransition();
+      },{once:true});
     }
 
     $("#consent").addEventListener("change",event=>{
