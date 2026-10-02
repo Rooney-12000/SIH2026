@@ -18,6 +18,7 @@ from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from jinja2 import ChoiceLoader, FileSystemLoader
 from sqlalchemy import inspect
+from sqlalchemy.exc import OperationalError
 
 load_dotenv()
 
@@ -34,6 +35,12 @@ os.makedirs(app.instance_path, exist_ok=True)
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "dev-only-change-me")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///iris.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# Render/Postgres can close idle SSL connections; validate pooled connections
+# before checkout and recycle them periodically.
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+}
 db = SQLAlchemy(app)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
@@ -89,7 +96,16 @@ class Review(db.Model):
 
 def purge_stale_users():
     cutoff = utcnow() - timedelta(days=ACTIVE_WINDOW_DAYS)
-    stale = User.query.filter(User.last_active_at < cutoff).all()
+    for attempt in range(2):
+        try:
+            stale = User.query.filter(User.last_active_at < cutoff).all()
+            break
+        except OperationalError:
+            db.session.rollback()
+            if attempt == 1:
+                raise
+            # Discard dead pooled connections so the next attempt opens a fresh one.
+            db.engine.dispose()
     for user in stale:
         ChatMessage.query.filter_by(session_id=user.session_id).delete()
         db.session.delete(user)
