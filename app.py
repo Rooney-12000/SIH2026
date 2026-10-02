@@ -1,8 +1,7 @@
 """IRIS: a small, supportive listening companion prototype.
 
 This is not a clinical service. Do not deploy with real health data without
-security, privacy, clinical, and legal review. Chat content is processed by
-Google Gemini using the configured Gemini API.
+security, privacy, clinical, and legal review. Chat text is sent to the configured Gemini API.
 """
 import os
 import re
@@ -10,38 +9,36 @@ import json
 import threading
 import time
 import uuid
+import random
 from datetime import datetime, timedelta, timezone
-
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from jinja2 import ChoiceLoader, FileSystemLoader
 from sqlalchemy import inspect
-from google import genai
 
 load_dotenv()
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=APP_DIR)
+# Accept either index.html next to app.py or the conventional templates/index.html.
 app.jinja_loader = ChoiceLoader([
     FileSystemLoader(APP_DIR),
     FileSystemLoader(os.path.join(APP_DIR, "templates")),
 ])
+# Flask-SQLAlchemy stores relative SQLite URLs under instance_path. Ensure that
+# folder exists on fresh installs and hosts that don't create it automatically.
 os.makedirs(app.instance_path, exist_ok=True)
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "dev-only-change-me")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///iris.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# Change this line in app.py:
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
-
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY is not configured.")
-
-client = genai.Client(api_key=GEMINI_API_KEY)
-
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
+GEMINI_CLIENT = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 ACTIVE_WINDOW_DAYS = 7
 VALID_AGES = {"12-18", "19-28", "29-40", "40+"}
 VALID_SEX = {"male", "female", "prefer_not_to_say"}
@@ -125,10 +122,27 @@ def seed_demo_providers():
 
 with app.app_context():
     db.create_all()
+    # Add columns to existing prototype databases without deleting user rows.
     user_columns = {
         column["name"]
         for column in inspect(db.engine).get_columns(User.__tablename__)
     }
+    if "last_active_at" not in user_columns:
+        db.session.execute(
+            db.text(
+                f"ALTER TABLE {User.__tablename__} "
+                "ADD COLUMN last_active_at TIMESTAMP"
+            )
+        )
+        # Existing sessions should remain active for the same seven-day window
+        # they had before this column was introduced.
+        db.session.execute(
+            db.text(
+                f"UPDATE {User.__tablename__} "
+                "SET last_active_at = created_at WHERE last_active_at IS NULL"
+            )
+        )
+        db.session.commit()
     if "login_expires_at" not in user_columns:
         db.session.execute(
             db.text(
@@ -152,11 +166,22 @@ CRISIS_REPLY = (
     "immediate danger right now?"
 )
 
-SYSTEM_PROMPT = """You are IRIS, an AI listening companion. Be warm, calm, curious, and concise.
+SYSTEM_PROMPT = """You are IRIS, an AI listening companion. Be warm, calm, curious, and deeply attentive.
 Be transparent that you are an AI; never pretend to be a human or change your gender/persona.
 You are not a clinician: do not diagnose, label, or claim to assess mental illness. Identify only
 the main conversation theme for supportive next-step suggestions, never as a diagnosis. Listen
-to the person's story, reflect what you hear, and ask at most one gentle open question at a time.
+closely to the person's story and respond with care, substance, and emotional presence. Prefer
+thoughtful, developed replies over terse or generic acknowledgements: reflect the specific details
+and emotional meaning the person shared, validate their experience without claiming to know exactly
+how they feel, and offer a gentle perspective or small practical support when it fits. A quiet,
+philosophical reflection about uncertainty, meaning, change, or human connection can help when it
+arises naturally from what the person said; keep it grounded in their situation, plain-spoken, and
+never preachy, fatalistic, abstract, or a substitute for listening. Console without minimizing,
+forced optimism, clichés, or promises that everything will be okay. Do not overstate intimacy or
+suggest that you are the user's only source of support. Ask at most one gentle, relevant open
+question at a time; do not tack on a question when a compassionate reflection or useful next step
+would serve better. Keep replies readable and proportionate to the user's message: usually a few
+sentences, with more room when the person shares something complex. Listen
 Explore the main concern at the user's pace; do not press for trauma details or rapid-fire symptom
 questions. Read the conversation before asking: never ask the user to repeat a detail they have
 already shared. If they point out a repeated question, acknowledge it briefly and move to a new,
@@ -168,14 +193,14 @@ suggest them to minors. For trauma or a difficult event, validate feelings and o
 contacting someone trusted or a licensed therapist. For addiction or compulsive habits, avoid
 shaming. After the PHQ-9 check-in, the user may choose Roar Wellness Rehabilitation Center as
 an optional recipient only when they selected the addiction or compulsive-habit support category.
-Ask for explicit consent first. This prototype has no delivery integration and must never claim a
-report was sent.
+Ask for explicit consent first. This prototype has no delivery integration and must never claim
+a report was sent.
 For persistent
 low mood, suggest a qualified mental-health professional without diagnosing depression. Never
 invent clinicians, email addresses, clinics, or local services. Do not claim confidentiality:
-this prototype processes chat text with Google Gemini using the configured Gemini API and stores
-it in a local database. Avoid repeating identifying details. Never send a report or personal information
-to anyone. A private summary may be shown to the user at automatic chat completion for them to share if they choose.
+this prototype sends chat text to the configured Gemini API and stores it in its configured database. Avoid repeating
+identifying details. Never send a report or personal information to anyone. A private summary may
+be shown to the user at automatic chat completion for them to share if they choose.
 If there is any safety concern, prioritize immediate human help and do not mark the chat complete.
 If a PHQ-9 self-check score is supplied, treat it only as a screening indicator for distress,
 not as a diagnosis or proof of a mental illness. Do not classify a mental illness from it.
@@ -211,14 +236,14 @@ Set report_details_ready true only when all required report details above have b
 or the user clearly skipped the optional relative contact.
 Set conversation_complete true only after report details are ready, the user has completed PHQ-9,
 and they have nothing more they want to add. In the final reply, summarize briefly, offer next steps, and close
-warmly without asking another question. Do not complete a chat with any possible self-harm,
-suicide, or immediate danger concern."""
+warmly without asking another question. Do not complete a chat with any possible self-harm, suicide,
+or immediate danger concern."""
 
 AGE_FOCUS = {
     "12-18": "If relevant to what they share, explore loneliness, belonging, and activities or routines. Use simple language.",
     "19-28": "If relevant, explore loneliness, social connection, and any habits the person feels are becoming hard to control.",
     "29-40": "If relevant, explore loneliness, major life events, and habits the person feels are becoming hard to control. Let the person set the pace around painful experiences.",
-    "40+": "If relevant, gently ask how long low mood has been present, about connection, and about habits the person feels are hard to control. Let the person set the pace.",
+    "40+": "If relevant, gently ask how long low mood has been present, about connection, and about habits the person feels are hard to control. Let them set the pace.",
 }
 
 
@@ -227,20 +252,42 @@ def json_error(message, status=400):
 
 
 def request_gemini(prompt):
-    """Call Gemini and request JSON output for IRIS."""
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",  # Updated active model ID
-        contents=prompt,
-        config={
-            "response_mime_type": "application/json",
-            "temperature": 0.4,
-            "max_output_tokens": 1000,
-        },
-    )
-    content = (response.text or "").strip()
-    if not content:
-        raise RuntimeError("Gemini returned an empty response.")
-    return content
+    """Call Gemini with bounded retries for temporary provider failures."""
+    if GEMINI_CLIENT is None:
+        raise RuntimeError("GEMINI_API_KEY is not configured.")
+
+    # Google may temporarily return 503 (capacity) or 429 (rate limit). Retry
+    # those and other transient server/network failures with capped backoff.
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        try:
+            response = GEMINI_CLIENT.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(response_mime_type="application/json"),
+            )
+            content = (response.text or "").strip()
+            if not content:
+                raise RuntimeError("Gemini returned an empty response.")
+            return content
+        except Exception as exc:
+            status = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+            status_text = f"{status or ''} {exc}".upper()
+            transient = (
+                status in (408, 429, 500, 502, 503, 504)
+                or any(token in status_text for token in (
+                    "UNAVAILABLE", "RESOURCE_EXHAUSTED", "TOO MANY REQUESTS",
+                    "INTERNAL", "DEADLINE_EXCEEDED", "TIMEOUT", "CONNECTION",
+                ))
+            )
+            if not transient or attempt == max_attempts - 1:
+                raise
+            delay = min(4.0, 0.8 * (2 ** attempt)) + random.uniform(0, 0.25)
+            app.logger.warning(
+                "Temporary Gemini failure (attempt %s/%s); retrying in %.1fs",
+                attempt + 1, max_attempts, delay,
+            )
+            time.sleep(delay)
 
 
 def phq_band(score):
@@ -257,7 +304,7 @@ def phq_band(score):
 
 
 def extract_model_json(raw_text):
-    """Find a JSON object in Gemini output, including fenced or prefixed output."""
+    """Find a JSON object in model output, including fenced or prefixed output."""
     text = str(raw_text or "").strip()
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.I).strip()
@@ -375,13 +422,14 @@ def contact_declined(value):
 
 
 def report_collection_reply(report_data, message, message_count, previous_assistant):
-    """Collect report details deterministically; Gemini does not control this workflow."""
+    """Collect report details deterministically; the model does not control this workflow."""
     if message_count == 15:
         return f"{REPORT_INTRO}\n\n{REPORT_QUESTIONS['issue_type']}"
 
     if report_details_are_ready(report_data):
         if previous_assistant and previous_assistant.rstrip().endswith(REPORT_READY_REPLY):
             return REPORT_READY_REPLY
+        # Discard complete-looking values left by the old model-driven extractor.
         report_data.update({
             "issue_type": "", "issue_category": "", "reason": "", "days": "",
             "relative_name": "", "relative_phone": "", "relative_skipped": False,
@@ -390,6 +438,8 @@ def report_collection_reply(report_data, message, message_count, previous_assist
 
     step = next_report_step(report_data)
     question = REPORT_QUESTIONS[step]
+    # Only treat a message as a report answer when the previous assistant turn asked
+    # that exact question. Existing older conversations start the structured flow here.
     if not previous_assistant or not previous_assistant.rstrip().endswith(question):
         return f"As promised, we’ll now gather the brief details for your report.\n\n{question}"
 
@@ -579,6 +629,8 @@ def restore_session():
             for question in REPORT_QUESTIONS.values()
         ) or last_assistant.rstrip().endswith(REPORT_READY_REPLY)
         if not flow_is_active:
+            # The previous model-driven extraction was unreliable; restart with a
+            # fixed prompt and discard stale client-side values on the browser.
             opener = f"{REPORT_INTRO}\n\n{REPORT_QUESTIONS['issue_type']}"
             db.session.add(ChatMessage(session_id=session_id, role="assistant", content=opener))
             db.session.commit()
@@ -716,7 +768,6 @@ def chat():
                 "as one self-reported screening context, not a diagnosis. Do not "
                 "infer a mental illness or its severity from this score."
             )
-        raw = ""
         try:
             raw = request_gemini(prompt).strip()
             if raw.startswith("```"):
@@ -747,10 +798,18 @@ def chat():
             report_details_ready = False
         except Exception:
             app.logger.exception("Gemini request failed")
-            return json_error(
-                "IRIS could not reach Gemini. Please check your Gemini API key and connection.",
-                503,
+            # Keep the chat usable during a provider outage. The user's message
+            # is already stored, and this reply is persisted like any other turn.
+            reply = (
+                "I’m sorry—I’m having trouble reaching my response service right now. "
+                "I did hear what you shared, and you don’t need to start over. "
+                "If it feels okay, send another message in a little while and we can continue from here."
             )
+            topic = "general_support"
+            summary = ""
+            next_steps = []
+            model_complete = False
+            report_details_ready = False
 
     consent_chosen = report_consent in allowed_consents
     if message_count < 15 or not report_details_ready or not consent_chosen:
@@ -789,7 +848,7 @@ def chat():
 
 @app.post("/api/report")
 def generate_report():
-    """Generate a non-diagnostic report summary using Gemini."""
+    """Generate a non-diagnostic report summary with Gemini."""
     purge_stale_users()
     data = request.get_json(silent=True) or {}
     session_id = str(data.get("session_id", ""))
@@ -938,9 +997,4 @@ if __name__ == "__main__":
     with app.app_context():
         purge_stale_users()
     threading.Thread(target=cleanup_loop, daemon=True, name="iris-session-cleanup").start()
-    app.run(
-        host=os.getenv("HOST", "127.0.0.1"),
-        port=int(os.getenv("PORT", "5000")),
-        debug=os.getenv("FLASK_DEBUG", "0") == "1",
-        use_reloader=False,
-    )
+    app.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "5000")), debug=os.getenv("FLASK_DEBUG", "0") == "1", use_reloader=False)
