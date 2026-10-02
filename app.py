@@ -19,6 +19,7 @@ from flask_sqlalchemy import SQLAlchemy
 from jinja2 import ChoiceLoader, FileSystemLoader
 from sqlalchemy import inspect
 from sqlalchemy.exc import OperationalError
+from werkzeug.security import check_password_hash, generate_password_hash
 
 load_dotenv()
 
@@ -67,6 +68,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
     last_active_at = db.Column(db.DateTime, default=utcnow, nullable=False)
     login_expires_at = db.Column(db.DateTime, nullable=True)
+    password_hash = db.Column(db.String(255), nullable=True)
 
 
 class ChatMessage(db.Model):
@@ -164,6 +166,14 @@ with app.app_context():
             db.text(
                 f"ALTER TABLE {User.__tablename__} "
                 "ADD COLUMN login_expires_at DATETIME"
+            )
+        )
+        db.session.commit()
+    if "password_hash" not in user_columns:
+        db.session.execute(
+            db.text(
+                f"ALTER TABLE {User.__tablename__} "
+                "ADD COLUMN password_hash VARCHAR(255)"
             )
         )
         db.session.commit()
@@ -542,13 +552,15 @@ def signup():
     purge_stale_users()
     data = request.get_json(silent=True) or {}
     email = str(data.get("email", "")).strip().lower()
+    password = str(data.get("password", ""))
     alias = str(data.get("alias", "")).strip()[:80]
     place = str(data.get("place", "")).strip()[:120]
     age_group = str(data.get("age_group", ""))
     sex = str(data.get("sex", ""))
-    session_id = str(data.get("session_id", ""))
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
         return json_error("Please enter a valid email address.")
+    if len(password) < 8 or len(password) > 128:
+        return json_error("Choose a password between 8 and 128 characters.")
     if not alias or age_group not in VALID_AGES:
         return json_error("Please add a name and choose an age group.")
     if not place:
@@ -556,11 +568,16 @@ def signup():
     if sex not in VALID_SEX:
         return json_error("Please select your sex or choose prefer not to say.")
     user = User.query.filter_by(email=email).first()
-    if user and user.session_id != session_id:
-        return json_error("An account already uses this email. Log in with your email instead.", 409)
-    session_id = session_id if user else str(uuid.uuid4())
-    if not user:
-        user = User(session_id=session_id, email=email, alias=alias, age_group=age_group)
+    if user:
+        return json_error("An account already uses this email. Log in instead.", 409)
+    session_id = str(uuid.uuid4())
+    user = User(
+        session_id=session_id,
+        email=email,
+        alias=alias,
+        age_group=age_group,
+        password_hash=generate_password_hash(password),
+    )
     user.session_id = session_id
     user.alias, user.place, user.age_group, user.sex = alias, place, age_group, sex
     user.last_active_at = utcnow()
@@ -582,19 +599,22 @@ def signup():
 
 @app.post("/api/login")
 def login():
-    """Email-only prototype login; this does not verify email ownership."""
+    """Authenticate with the email and password."""
     purge_stale_users()
     data = request.get_json(silent=True) or {}
     email = str(data.get("email", "")).strip().lower()
+    password = str(data.get("password", ""))
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
         return json_error("Please enter a valid email address.")
 
     user = User.query.filter_by(email=email).first()
-    if not user:
-        return json_error(
-            "No account was found for that email. You can create a new account.",
-            404,
-        )
+    if not user or not user.password_hash or not check_password_hash(user.password_hash, password):
+        if user and not user.password_hash:
+            return json_error(
+                "This account needs a password. If you are still signed in on another device, open Personal details there and set one.",
+                401,
+            )
+        return json_error("Email or password is incorrect.", 401)
 
     now = utcnow()
     user.login_expires_at = now + timedelta(days=2)
@@ -614,6 +634,27 @@ def login():
         "login_expires_at": user.login_expires_at.isoformat() + "Z",
         "history": [{"role": m.role, "content": m.content} for m in history],
     })
+
+
+@app.post("/api/password")
+def set_password():
+    """Set a first password or change an existing password for an active session."""
+    data = request.get_json(silent=True) or {}
+    session_id = str(data.get("session_id", ""))
+    current_password = str(data.get("current_password", ""))
+    new_password = str(data.get("password", ""))
+    if len(new_password) < 8 or len(new_password) > 128:
+        return json_error("Choose a password between 8 and 128 characters.")
+
+    user = User.query.filter_by(session_id=session_id).first()
+    if not user or not user.login_expires_at or user.login_expires_at <= utcnow():
+        return json_error("Your session has expired. Log in again.", 401)
+    if user.password_hash and not check_password_hash(user.password_hash, current_password):
+        return json_error("Your current password is incorrect.", 401)
+
+    user.password_hash = generate_password_hash(new_password)
+    db.session.commit()
+    return jsonify({"message": "Your password has been updated."})
 
 
 @app.post("/api/session")

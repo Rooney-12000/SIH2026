@@ -50,11 +50,15 @@
   <section id="login-screen" class="screen hidden" aria-labelledby="login-title">
     <div class="card">
       <h2 id="login-title">Welcome back</h2>
-      <p>Enter the email address on your IRIS account. This prototype does not verify email ownership.</p>
+      <p>Enter your email and password to open your IRIS account.</p>
       <form id="login-form">
         <div class="field">
           <label for="login-email">Email</label>
           <input id="login-email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" autocomplete="current-password" required>
         </div>
         <p class="status" id="login-status" role="alert"></p>
         <button class="btn" type="submit">Log in</button>
@@ -75,6 +79,14 @@
         <div class="field">
           <label for="email">Email</label>
           <input id="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="signup-password">Create a password (at least 8 characters)</label>
+          <input id="signup-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+        </div>
+        <div class="field">
+          <label for="signup-password-confirm">Confirm password</label>
+          <input id="signup-password-confirm" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
         </div>
         <div class="field">
           <label for="place">City or town (enter “Prefer not to share” if you wish)</label>
@@ -101,7 +113,7 @@
             </select>
           </div>
         </div>
-        <p class="privacy">Your sex selection does not change IRIS’s identity or persona. You may use a nickname; the email is used to prevent duplicate active sessions.</p>
+        <p class="privacy">Your sex selection does not change IRIS’s identity or persona. You may use a nickname. Your password protects access to this account.</p>
         <p id="form-status" class="status" role="alert"></p>
         <button class="btn" type="submit">Open my space</button>
       </form>
@@ -120,6 +132,15 @@
         <div class="field"><label>Age group</label><input id="profile-age" readonly></div>
         <div class="field"><label>Sex</label><input id="profile-sex" readonly></div>
       </div>
+      <form id="password-form">
+        <h3>Account password</h3>
+        <p class="privacy">Set a password to protect your account. For existing accounts, you can set the first password from a device where you are already signed in.</p>
+        <div class="field"><label for="current-password">Current password (if already set)</label><input id="current-password" type="password" autocomplete="current-password"></div>
+        <div class="field"><label for="new-password">New password (at least 8 characters)</label><input id="new-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></div>
+        <div class="field"><label for="new-password-confirm">Confirm new password</label><input id="new-password-confirm" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></div>
+        <p id="password-status" class="status" role="status"></p>
+        <button class="btn" type="submit">Update password</button>
+      </form>
       <div class="screen-card-actions"><button class="btn light" id="cancel-profile">Back to chat</button><button class="btn" id="logout-button">Log out</button></div>
     </div>
   </section>
@@ -710,9 +731,14 @@
     $("#details-form").addEventListener("submit",async event=>{
       event.preventDefault();
       $("#form-status").textContent="";
+      if($("#signup-password").value!==$("#signup-password-confirm").value){
+        $("#form-status").textContent="The passwords do not match.";
+        return;
+      }
       const payload={
         session_id:sessionId,
         email:$("#email").value,
+        password:$("#signup-password").value,
         alias:$("#alias").value,
         place:$("#place").value,
         age_group:$("#age").value,
@@ -727,6 +753,8 @@
         const data=await response.json();
         if(!response.ok)throw Error(data.error||"Could not start session.");
         saveLogin(data);
+        $("#signup-password").value="";
+        $("#signup-password-confirm").value="";
         enterMainWebsite(data,"details-screen");
       }catch(error){
         $("#form-status").textContent=error.message;
@@ -743,11 +771,12 @@
         const response=await fetch("/api/login",{
           method:"POST",
           headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({email:$("#login-email").value})
+          body:JSON.stringify({email:$("#login-email").value,password:$("#login-password").value})
         });
         const data=await response.json();
         if(!response.ok)throw Error(data.error||"Could not log in.");
         saveLogin(data);
+        $("#login-password").value="";
         enterMainWebsite(data,"login-screen");
       }catch(error){
         $("#login-status").textContent=error.message;
@@ -784,6 +813,36 @@
     $("#profile-button").onclick=()=>{
       if(sessionId)show("profile-screen");
     };
+
+    $("#password-form").addEventListener("submit",async event=>{
+      event.preventDefault();
+      const status=$("#password-status");
+      status.textContent="";
+      const password=$("#new-password").value;
+      if(password!==$("#new-password-confirm").value){
+        status.textContent="The new passwords do not match.";
+        return;
+      }
+      try{
+        const response=await fetch("/api/password",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            session_id:sessionId,
+            current_password:$("#current-password").value,
+            password
+          })
+        });
+        const data=await response.json();
+        if(!response.ok)throw Error(data.error||"Could not update password.");
+        status.textContent=data.message||"Your password has been updated.";
+        $("#current-password").value="";
+        $("#new-password").value="";
+        $("#new-password-confirm").value="";
+      }catch(error){
+        status.textContent=error.message;
+      }
+    });
 
     $("#cancel-profile").onclick=()=>show("app");
 
