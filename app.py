@@ -141,6 +141,7 @@ def seed_demo_providers():
 with app.app_context():
     db.create_all()
     # Add columns to existing prototype databases without deleting user rows.
+    quoted_user_table = db.engine.dialect.identifier_preparer.quote(User.__tablename__)
     user_columns = {
         column["name"]
         for column in inspect(db.engine).get_columns(User.__tablename__)
@@ -148,7 +149,7 @@ with app.app_context():
     if "last_active_at" not in user_columns:
         db.session.execute(
             db.text(
-                f"ALTER TABLE {User.__tablename__} "
+                f"ALTER TABLE {quoted_user_table} "
                 "ADD COLUMN last_active_at TIMESTAMP"
             )
         )
@@ -156,7 +157,7 @@ with app.app_context():
         # they had before this column was introduced.
         db.session.execute(
             db.text(
-                f"UPDATE {User.__tablename__} "
+                f"UPDATE {quoted_user_table} "
                 "SET last_active_at = created_at WHERE last_active_at IS NULL"
             )
         )
@@ -164,15 +165,15 @@ with app.app_context():
     if "login_expires_at" not in user_columns:
         db.session.execute(
             db.text(
-                f"ALTER TABLE {User.__tablename__} "
-                "ADD COLUMN login_expires_at DATETIME"
+                f"ALTER TABLE {quoted_user_table} "
+                "ADD COLUMN login_expires_at TIMESTAMP"
             )
         )
         db.session.commit()
     if "password_hash" not in user_columns:
         db.session.execute(
             db.text(
-                f"ALTER TABLE {User.__tablename__} "
+                f"ALTER TABLE {quoted_user_table} "
                 "ADD COLUMN password_hash VARCHAR(255)"
             )
         )
