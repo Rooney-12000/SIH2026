@@ -219,8 +219,17 @@ Be transparent that you are an AI; never pretend to be a human or change your ge
 You are not a clinician: do not diagnose, label, or claim to assess mental illness. Identify only
 the main conversation theme for supportive next-step suggestions, never as a diagnosis. Choose from
 loneliness, trauma_or_stress, addiction_or_compulsive_habit, persistent_low_mood, or general_support.
-Ground the theme in what the user actually shared; use general_support when there is not enough
-information. Never label a person as "timepass" or infer a diagnosis. Listen
+Use loneliness for explicitly described isolation or disconnection; trauma_or_stress only for a
+user-described traumatic event that is still causing distress; addiction_or_compulsive_habit only for
+a user-described habit they feel unable to control; and persistent_low_mood for low mood the user
+describes as ongoing, not as a confirmed finding of chronic depression. Ground the theme in what the user actually shared; use
+general_support when there is not enough information. For ages 12–18, the user may mention "timepass":
+map that to general_support only if they explicitly say they are chatting casually without a stated
+distress concern. Never infer it from age, humor, or short replies, and never label the person as
+"timepass". During the first nine user messages, gently learn about the concern's cause, impact,
+persistence, and any habit the user says is hard to control; ask naturally, one question at a time,
+without naming or announcing a category. Do not expose the internal theme in chat. Use the age-group
+guidance as a soft priority for what to explore, not as evidence for a category. Listen
 closely to the person's story and respond with care, substance, and emotional presence. Prefer
 thoughtful, developed replies over terse or generic acknowledgements: reflect the specific details
 and emotional meaning the person shared, validate their experience without claiming to know exactly
@@ -291,10 +300,10 @@ warmly without asking another question. Do not complete a chat with any possible
 or immediate danger concern."""
 
 AGE_FOCUS = {
-    "12-18": "If relevant to what they share, explore loneliness, belonging, and activities or routines. Use simple language.",
-    "19-28": "If relevant, explore loneliness, social connection, and any habits the person feels are becoming hard to control.",
-    "29-40": "If relevant, explore loneliness, major life events, and habits the person feels are becoming hard to control. Let the person set the pace around painful experiences.",
-    "40+": "If relevant, gently ask how long low mood has been present, about connection, and about habits the person feels are hard to control. Let them set the pace.",
+    "12-18": "When relevant, prioritize loneliness and belonging. Use simple language. Treat casual chatting as general support only if the user explicitly says there is no concern; do not infer 'timepass'.",
+    "19-28": "When relevant, prioritize loneliness and social connection, then ask about habits only if the user indicates they may be hard to control.",
+    "29-40": "When relevant, consider loneliness, user-described trauma or major stress, and habits the user says are hard to control. Let the person set the pace around painful experiences.",
+    "40+": "When relevant, consider persistent low mood, user-described trauma or major stress, and habits the user says are hard to control. Ask about duration without diagnosing chronic depression.",
 }
 
 
@@ -1042,11 +1051,21 @@ def generate_report():
         if user.conversation_theme in allowed_themes
         else "not_enough_information"
     )
+    requested_report_categories = {
+        "loneliness": "loneliness",
+        "trauma_or_stress": "serious_trauma",
+        "addiction_or_compulsive_habit": "addiction",
+        "persistent_low_mood": "chronic_depression",
+    }
+    report_category = requested_report_categories.get(
+        conversation_theme, "not_enough_information"
+    )
     supplied = {
         "age_category": user.age_group,
         "sex": user.sex,
         "place": user.place,
         "preliminary_conversation_theme": conversation_theme,
+        "requested_report_category": report_category,
         "issue_category": issue_category,
         "issue_type_user_description": issue_type,
         "reason_user_shared": reason,
@@ -1064,8 +1083,10 @@ def generate_report():
     }
     prompt = (
         "Prepare two concise, factual, supportive report sections from the supplied data. "
-        "The summary field should summarize the report details and state the preliminary conversation "
-        "theme only as a tentative, non-diagnostic theme. The user_thoughts field should "
+        "The summary field should summarize the report details and include requested_report_category "
+        "as a tentative concern category from the first nine user messages, never as a diagnosis. If "
+        "the category is not_enough_information, say there was not enough information to assign one. "
+        "The user_thoughts field should "
         "summarize the person's feelings, thoughts, experiences, effects on daily life, and other "
         "relevant context they described in their own chat messages before the PHQ-9 check-in began. "
         "Include the important themes without repeating the whole conversation. Do not include contact "
@@ -1106,6 +1127,7 @@ def generate_report():
         "summary": summary,
         "user_thoughts": user_thoughts,
         "conversation_theme": conversation_theme,
+        "report_category": report_category,
         "score": score,
         "score_band": phq_band(score),
     })

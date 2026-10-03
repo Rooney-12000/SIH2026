@@ -259,12 +259,11 @@
       general_support:"General support or other"
     };
     const conversationThemeLabels={
-      loneliness:"Loneliness",
-      trauma_or_stress:"Possible trauma or stress-related concern",
-      addiction_or_compulsive_habit:"Possible addiction or compulsive-habit concern",
-      persistent_low_mood:"Persistent low mood (not a diagnosis)",
-      general_support:"General support / no clear distress stated",
-      not_enough_information:"Not enough information to assign a theme"
+      loneliness:"Loneliness (tentative; not a diagnosis)",
+      serious_trauma:"Serious trauma (possible concern; not a diagnosis)",
+      addiction:"Addiction (possible concern; not a diagnosis)",
+      chronic_depression:"Chronic depression (possible concern; not a diagnosis)",
+      not_enough_information:"Not enough information to assign a category"
     };
 
     const qs=[
@@ -555,7 +554,7 @@
           `Age category: ${reportProfile.age_group||"Not provided"}`,
           `Sex: ${reportProfile.sex||"Not provided"}`,
           `Place: ${reportProfile.place||"Not provided"}`,
-          `Preliminary conversation theme (not a diagnosis): ${conversationThemeLabels[data.conversation_theme]||conversationThemeLabels.not_enough_information}`,
+          `Preliminary category from the first nine messages (not a diagnosis): ${conversationThemeLabels[data.report_category]||conversationThemeLabels.not_enough_information}`,
           `Concern (user description): ${reportData.issue_type||"Not provided"}`,
           "Support category (not a diagnosis): " + (reportCategoryLabels[reportData.issue_category]||"Not provided"),
           `Reason shared: ${reportData.reason||"Not provided"}`,
