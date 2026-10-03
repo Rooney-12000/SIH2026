@@ -282,6 +282,23 @@
       catch{return null}
     }
 
+    function readPrePhqMessages(id){
+      try{
+        const messages=JSON.parse(sessionStorage.getItem("iris_prephq_messages_"+id)||"null");
+        return Array.isArray(messages)?messages.filter(message=>typeof message==="string"):null;
+      }catch{return null}
+    }
+
+    let prePhqUserMessages=readPrePhqMessages(sessionId);
+
+    function capturePrePhqMessages(){
+      if(Array.isArray(prePhqUserMessages))return;
+      prePhqUserMessages=[...document.querySelectorAll("#chat-box .row.user .bubble.user")]
+        .map(bubble=>bubble.textContent.trim())
+        .filter(Boolean);
+      sessionStorage.setItem("iris_prephq_messages_"+sessionId,JSON.stringify(prePhqUserMessages));
+    }
+
     function show(id){
       ["terms-screen","animator","login-screen","details-screen","profile-screen","app"]
         .forEach(name=>$("#"+name).classList.toggle("hidden",name!==id));
@@ -289,6 +306,7 @@
 
     function saveLogin(data){
       sessionId=data.session_id;
+      prePhqUserMessages=readPrePhqMessages(sessionId);
       const savedPhq=sessionStorage.getItem("iris_phq_"+sessionId);
       phqScore=savedPhq===null?null:Number(savedPhq);
       phqAnswers=readPhqAnswers(sessionId);
@@ -311,6 +329,7 @@
       localStorage.removeItem("iris_report_consent_"+id);
       sessionStorage.removeItem("iris_phq_"+id);
       sessionStorage.removeItem("iris_phqa_"+id);
+      sessionStorage.removeItem("iris_prephq_messages_"+id);
     }
 
     function addBubble(text,who,crisis=false){
@@ -395,6 +414,7 @@
       if(phqScore!==null)return;
       const eligible=reportReady;
       if(eligible){
+        capturePrePhqMessages();
         reportConsent="none";
         saveReportState();
         $("#phq-gate-status").textContent="Your report details are ready. Complete the mandatory PHQ-9 check-in now; your report will be prepared automatically afterward.";
@@ -489,7 +509,8 @@
             session_id:sessionId,
             report_data:reportData,
             report_consent:reportConsent,
-            phq_answers:phqAnswers
+            phq_answers:phqAnswers,
+            pre_phq_user_messages:prePhqUserMessages||[]
           })
         });
         const data=await response.json();
@@ -521,6 +542,7 @@
           data.summary,
           "",
           "User's Thoughts",
+          "Summary of the user's messages shared before the PHQ-9 check-in:",
           data.user_thoughts
         ];
         reportDownloadUrl=URL.createObjectURL(new Blob([report.join("\n")],{type:"text/plain;charset=utf-8"}));
