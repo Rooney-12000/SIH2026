@@ -182,8 +182,8 @@
       <aside class="sidebar">
         <section class="panel side-panel" id="phq-gate">
           <h2>PHQ-9 distress check-in</h2>
-          <p>PHQ-9 is a screening result, not a diagnosis. IRIS will begin it after at least 15 messages and after collecting the report details below through your conversation.</p>
-          <p id="phq-gate-status" class="status" role="status">After 15 messages, IRIS will ask a few questions needed for your report. When those details are ready, the mandatory PHQ-9 check-in will start automatically, followed by report preparation.</p>
+          <p>PHQ-9 is a screening result, not a diagnosis. IRIS will begin it only after you have sent at least 15 messages and provided the report details.</p>
+          <p id="phq-gate-status" class="status" role="status">After you send 15 messages, IRIS will ask a few questions needed for your report. When those details are ready, the mandatory PHQ-9 check-in will start automatically, followed by report preparation.</p>
           <form id="phq-form" class="hidden"></form>
           <div id="phq-result" class="hidden">
             <div id="phq-pie" class="phq-pie" role="img" aria-label="PHQ-9 score shown as a portion of the maximum score">
@@ -384,9 +384,16 @@
     }
 
     function showPhqQuestionnaire(){
-      if(phqScore!==null)return;
       $("#phq-gate").classList.remove("hidden");
-      const eligible=userMessages>=15&&reportReady;
+      if(userMessages<15){
+        $("#phq-form").classList.add("hidden");
+        $("#phq-result").classList.add("hidden");
+        $("#sharing-consent").classList.add("hidden");
+        $("#phq-gate-status").textContent="The mandatory PHQ-9 check-in becomes available after you have sent at least 15 messages and provided the report details.";
+        return;
+      }
+      if(phqScore!==null)return;
+      const eligible=reportReady;
       if(eligible){
         reportConsent="none";
         saveReportState();
@@ -394,7 +401,7 @@
         $("#phq-form").classList.remove("hidden");
       }else{
         $("#phq-gate-status").textContent=userMessages<15
-          ?"After 15 messages, IRIS will ask a few questions needed for your report. The mandatory PHQ-9 check-in starts automatically when those details are ready."
+          ?"After you send 15 messages, IRIS will ask a few questions needed for your report. The mandatory PHQ-9 check-in starts automatically when those details are ready."
           :"IRIS is still gathering the information needed for your report. Continue the conversation; the mandatory PHQ-9 check-in will start automatically when those details are ready.";
         $("#phq-form").classList.add("hidden");
       }
@@ -625,6 +632,12 @@
     }
 
     function showPhqResult(score){
+      if(userMessages<15){
+        $("#phq-form").classList.add("hidden");
+        $("#phq-result").classList.add("hidden");
+        $("#sharing-consent").classList.add("hidden");
+        return;
+      }
       const bands=[
         [4,"Minimal or no depression","#4c8577"],
         [9,"Mild depression","#8da85d"],
@@ -673,8 +686,17 @@
       });
 
       userMessages=(data.history||[]).filter(message=>message.role==="user").length;
-      if(userMessages>=15)showPhqQuestionnaire();
-      if(reportReady)showPhqQuestionnaire();
+      if(userMessages<15){
+        phqScore=null;
+        phqAnswers=null;
+        sessionStorage.removeItem("iris_phq_"+sessionId);
+        sessionStorage.removeItem("iris_phqa_"+sessionId);
+        reportData={};
+        reportReady=false;
+        reportConsent="none";
+        saveReportState();
+      }
+      showPhqQuestionnaire();
       if(phqScore!==null&&Number.isFinite(phqScore)){
         showPhqResult(phqScore);
         if(reportReady&&Array.isArray(phqAnswers)&&phqAnswers.length===9)showSharingConsent();
