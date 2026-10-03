@@ -231,25 +231,25 @@ be shown to the user at automatic chat completion for them to share if they choo
 If there is any safety concern, prioritize immediate human help and do not mark the chat complete.
 If a PHQ-9 self-check score is supplied, treat it only as a screening indicator for distress,
 not as a diagnosis or proof of a mental illness. Do not classify a mental illness from it.
-Before the 15th user message, listen normally and do not start collecting report fields. In your
-reply to the 15th user message, tell the user that the next steps are a few brief report questions,
+Before the 10th user message, listen normally and do not start collecting report fields. In your
+reply to the 10th user message, tell the user that the next steps are a few brief report questions,
 then the required PHQ-9 check-in, and then preparation of their report for download. Starting with the
-15th user message, ask for every report field one at a time, in this order: the user's own words for
+10th user message, ask for every report field one at a time, in this order: the user's own words for
 the concern, a non-diagnostic support category (loneliness, trauma_or_stress,
 addiction_or_compulsive_habit, persistent_low_mood, or general_support), the reason they feel it began,
 how many days they have felt this way, and the close contact's name and phone number. The close contact is optional only if the user
 explicitly says they decline; record that explicit choice instead of leaving either field empty.
-Do not reuse information from messages before the 15th user message as an answer: ask and wait for
-the user to provide or confirm each answer after the 15-message point. Age group, sex, and place are
+Do not reuse information from messages before the 10th user message as an answer: ask and wait for
+the user to provide or confirm each answer after the 10-message point. Age group, sex, and place are
 required fields entered by the user in their profile; use those exact values without inference.
 Do not request sensitive trauma details beyond what the user volunteers.
 Record duration as a number of days only. Convert only explicit weeks/months using 7/30 days; ask
 one follow-up when duration is vague instead of guessing.
 Do not mark report_details_ready true until every report field has a user-provided value: concern,
 support category, reason, duration, and either both contact fields or the user's explicit refusal to share them.
-Extract only answers the user gave after message 15. Keep asking one question at a time until all
+Extract only answers the user gave after message 10. Keep asking one question at a time until all
 fields have answers, even if this takes more messages.
-Do not start PHQ-9 until the user has sent at least 15 messages and all report details are ready.
+Do not start PHQ-9 until the user has sent at least 10 messages and all report details are ready.
 Once all report details are ready, the browser starts the mandatory PHQ-9 automatically; do not ask
 the user for a sharing choice before PHQ-9. After PHQ-9, the browser must ask for a private/share
 choice and include that explicit choice in the report request before preparing the report. Use
@@ -450,7 +450,7 @@ def contact_declined(value):
 
 def report_collection_reply(report_data, message, message_count, previous_assistant):
     """Collect report details deterministically; the model does not control this workflow."""
-    if message_count == 15:
+    if message_count == 10:
         return f"{REPORT_INTRO}\n\n{REPORT_QUESTIONS['issue_type']}"
 
     if report_details_are_ready(report_data):
@@ -680,7 +680,7 @@ def restore_session():
         restored_phq_score = None
     crisis_seen = any(CRISIS_RE.search(row.content) for row in user_messages)
     report_flow_reset = False
-    if user_message_count >= 15 and restored_phq_score is None and not crisis_seen:
+    if user_message_count >= 10 and restored_phq_score is None and not crisis_seen:
         last_assistant = next((row.content for row in reversed(history) if row.role == "assistant"), "")
         flow_is_active = any(
             last_assistant.rstrip().endswith(question)
@@ -762,7 +762,7 @@ def chat():
         "relative_skipped": False,
     }
     supplied_report = data.get("report_data")
-    if message_count > 15 and isinstance(supplied_report, dict):
+    if message_count > 10 and isinstance(supplied_report, dict):
         for key in report_data:
             if key == "relative_skipped":
                 report_data[key] = supplied_report.get(key) is True
@@ -783,7 +783,7 @@ def chat():
         and bool(report_data["days"])
         and (supplied_contact or report_data["relative_skipped"])
     )
-    if message_count < 15 or not supplied_details_ready or report_consent not in allowed_consents:
+    if message_count < 10 or not supplied_details_ready or report_consent not in allowed_consents:
         phq_score = None
     report_details_ready = False
 
@@ -796,7 +796,7 @@ def chat():
             "In India, call Tele-MANAS at 14416.",
         ]
         model_complete = False
-    elif message_count >= 15 and phq_score is None:
+    elif message_count >= 10 and phq_score is None:
         reply = report_collection_reply(
             report_data, message, message_count, previous_assistant_text
         )
@@ -870,12 +870,12 @@ def chat():
             report_details_ready = False
 
     consent_chosen = report_consent in allowed_consents
-    if message_count < 15 or not report_details_ready or not consent_chosen:
+    if message_count < 10 or not report_details_ready or not consent_chosen:
         phq_score = None
     session_closed = (
         model_complete
         and not crisis_seen
-        and message_count >= 15
+        and message_count >= 10
         and report_details_ready
         and phq_score is not None
         and consent_chosen
@@ -919,7 +919,7 @@ def generate_report():
     message_count = ChatMessage.query.filter_by(
         session_id=session_id, role="user"
     ).count()
-    if message_count < 15:
+    if message_count < 10:
         return json_error("The report is available after the conversation check-in is ready.", 400)
 
     report_data = data.get("report_data")
@@ -962,7 +962,7 @@ def generate_report():
     if any(answer not in (0, 1, 2, 3) for answer in answers):
         return json_error("PHQ-9 answers must be between 0 and 3.")
 
-    # The report conversation begins at user message 15. Summarize the user's
+    # The report conversation begins at user message 10. Summarize the user's
     # own words from before that structured report flow, without including AI turns.
     pre_report_messages = (
         ChatMessage.query.filter_by(session_id=session_id, role="user")
