@@ -258,6 +258,14 @@
       persistent_low_mood:"Persistent low mood",
       general_support:"General support or other"
     };
+    const conversationThemeLabels={
+      loneliness:"Loneliness",
+      trauma_or_stress:"Possible trauma or stress-related concern",
+      addiction_or_compulsive_habit:"Possible addiction or compulsive-habit concern",
+      persistent_low_mood:"Persistent low mood (not a diagnosis)",
+      general_support:"General support / no clear distress stated",
+      not_enough_information:"Not enough information to assign a theme"
+    };
 
     const qs=[
       "Little interest or pleasure in doing things",
@@ -492,6 +500,28 @@
         link.href=reportDownloadUrl;
         link.download="iris-support-report.txt";
         link.click();
+        button.disabled=true;
+        status.textContent="Your report download has started. Deleting your account and chat history…";
+        try{
+          const response=await fetch("/api/report/downloaded",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({session_id:sessionId})
+          });
+          const data=await response.json();
+          if(!response.ok)throw Error(data.error||"Could not delete your account and chat history.");
+          const deletedSessionId=sessionId;
+          forgetLocalReport(deletedSessionId);
+          clearLogin();
+          ended=true;
+          $("#composer").classList.add("hidden");
+          button.textContent="Account and chat deleted";
+          status.textContent=data.message||"Your report download started and your account and chat history have been deleted.";
+          $("#reviews").scrollIntoView({behavior:"smooth"});
+        }catch(error){
+          button.disabled=false;
+          status.textContent="The report download started, but account deletion failed: "+error.message;
+        }
         return;
       }
       if(!Array.isArray(phqAnswers)||phqAnswers.length!==9){
@@ -525,6 +555,7 @@
           `Age category: ${reportProfile.age_group||"Not provided"}`,
           `Sex: ${reportProfile.sex||"Not provided"}`,
           `Place: ${reportProfile.place||"Not provided"}`,
+          `Preliminary conversation theme (not a diagnosis): ${conversationThemeLabels[data.conversation_theme]||conversationThemeLabels.not_enough_information}`,
           `Concern (user description): ${reportData.issue_type||"Not provided"}`,
           "Support category (not a diagnosis): " + (reportCategoryLabels[reportData.issue_category]||"Not provided"),
           `Reason shared: ${reportData.reason||"Not provided"}`,
