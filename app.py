@@ -12,8 +12,7 @@ import sys
 import uuid
 import random
 from datetime import datetime, timedelta, timezone
-from google import genai
-from google.genai import types
+from groq import Groq
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
@@ -45,9 +44,9 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 }
 db = SQLAlchemy(app)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
-GEMINI_CLIENT = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama3-70b-8192").strip()
+GROQ_CLIENT = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 ACTIVE_WINDOW_DAYS = 7
 VALID_AGES = {"12-18", "19-28", "29-40", "40+"}
 VALID_SEX = {"male", "female", "prefer_not_to_say"}
@@ -258,7 +257,7 @@ a report was sent.
 For persistent
 low mood, suggest a qualified mental-health professional without diagnosing depression. Never
 invent clinicians, email addresses, clinics, or local services. Do not claim confidentiality:
-this prototype sends chat text to the configured Gemini API and stores it in its configured database. Avoid repeating
+this prototype sends chat text to the configured Groq API and stores it in its configured database. Avoid repeating
 identifying details. Never send a report or personal information to anyone. A private summary may
 be shown to the user at automatic chat completion for them to share if they choose.
 If there is any safety concern, prioritize immediate human help and do not mark the chat complete.
@@ -311,40 +310,37 @@ def json_error(message, status=400):
     return jsonify({"error": message}), status
 
 
-def request_gemini(prompt):
-    """Call Gemini with bounded retries for temporary provider failures."""
-    if GEMINI_CLIENT is None:
-        raise RuntimeError("GEMINI_API_KEY is not configured.")
+def request_groq(prompt):
+    """Call Groq with bounded retries for temporary provider failures."""
+    if GROQ_CLIENT is None:
+        raise RuntimeError("GROQ_API_KEY is not configured.")
 
-    # Google may temporarily return 503 (capacity) or 429 (rate limit). Retry
-    # those and other transient server/network failures with capped backoff.
     max_attempts = 3
     for attempt in range(max_attempts):
         try:
-            response = GEMINI_CLIENT.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json"),
+            response = GROQ_CLIENT.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
             )
-            content = (response.text or "").strip()
+            content = (response.choices[0].message.content or "").strip()
             if not content:
-                raise RuntimeError("Gemini returned an empty response.")
+                raise RuntimeError("Groq returned an empty response.")
             return content
         except Exception as exc:
-            status = getattr(exc, "code", None) or getattr(exc, "status_code", None)
-            status_text = f"{status or ''} {exc}".upper()
+            status = getattr(exc, "status_code", None)
+            status_text = str(exc).upper()
             transient = (
                 status in (408, 429, 500, 502, 503, 504)
                 or any(token in status_text for token in (
-                    "UNAVAILABLE", "RESOURCE_EXHAUSTED", "TOO MANY REQUESTS",
-                    "INTERNAL", "DEADLINE_EXCEEDED", "TIMEOUT", "CONNECTION",
+                    "UNAVAILABLE", "RATE_LIMIT_EXCEEDED", "INTERNAL", "TIMEOUT", "CONNECTION"
                 ))
             )
             if not transient or attempt == max_attempts - 1:
                 raise
             delay = min(4.0, 0.8 * (2 ** attempt)) + random.uniform(0, 0.25)
             app.logger.warning(
-                "Temporary Gemini failure (attempt %s/%s); retrying in %.1fs",
+                "Temporary Groq failure (attempt %s/%s); retrying in %.1fs",
                 attempt + 1, max_attempts, delay,
             )
             time.sleep(delay)
@@ -861,7 +857,7 @@ def chat():
                 "infer a mental illness or its severity from this score."
             )
         try:
-            raw = request_gemini(prompt).strip()
+            raw = request_groq(prompt).strip()
             if raw.startswith("```"):
                 raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.I).strip()
             parsed = extract_model_json(raw)
@@ -882,7 +878,7 @@ def chat():
             model_complete = parsed.get("conversation_complete") is True
             report_details_ready = report_details_are_ready(report_data)
         except json.JSONDecodeError:
-            app.logger.warning("Gemini returned non-JSON; leaving the conversation open")
+            app.logger.warning("Groq returned non-JSON; leaving the conversation open")
             reply = model_reply_fallback(raw)
             topic = "general_support"
             summary = ""
@@ -890,7 +886,7 @@ def chat():
             model_complete = False
             report_details_ready = False
         except Exception:
-            app.logger.exception("Gemini request failed")
+            app.logger.exception("Groq request failed")
             # Keep the chat usable during a provider outage. The user's message
             # is already stored, and this reply is persisted like any other turn.
             reply = (
@@ -1105,18 +1101,18 @@ def generate_report():
         }, ensure_ascii=False)
     )
     try:
-        raw = request_gemini(prompt).strip()
+        raw = request_groq(prompt).strip()
         if raw.startswith("```"):
             raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.I).strip()
         parsed = json.loads(raw)
         summary = str(parsed.get("summary") or "").strip()[:3000]
         user_thoughts = str(parsed.get("user_thoughts") or "").strip()[:5000]
         if not summary:
-            raise ValueError("Gemini returned an empty report summary.")
+            raise ValueError("Groq returned an empty report summary.")
         if not user_thoughts:
-            raise ValueError("Gemini returned an empty User's Thoughts summary.")
+            raise ValueError("Groq returned an empty User's Thoughts summary.")
     except Exception:
-        app.logger.exception("Gemini report generation failed")
+        app.logger.exception("Groq report generation failed")
         return json_error("IRIS could not draft the report right now. The report details are still available to download.", 503)
 
     user.report_generated_at = utcnow()
