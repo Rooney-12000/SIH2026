@@ -1,7 +1,7 @@
 """IRIS: a small, supportive listening companion prototype.
 
 This is not a clinical service. Do not deploy with real health data without
-security, privacy, clinical, and legal review. Chat text is sent to the configured Gemini API.
+security, privacy, clinical, and legal review. Chat text is sent to the configured Groq API.
 """
 import os
 import re
@@ -946,7 +946,7 @@ def chat():
 
 @app.post("/api/report")
 def generate_report():
-    """Generate a non-diagnostic report summary with Gemini."""
+    """Generate a non-diagnostic report summary with Groq."""
     purge_stale_users()
     data = request.get_json(silent=True) or {}
     session_id = str(data.get("session_id", ""))
