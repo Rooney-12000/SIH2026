@@ -45,7 +45,7 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 db = SQLAlchemy(app)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama3-70b-8192").strip()
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
 GROQ_CLIENT = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 ACTIVE_WINDOW_DAYS = 7
 VALID_AGES = {"12-18", "19-28", "29-40", "40+"}
